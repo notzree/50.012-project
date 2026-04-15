@@ -1,9 +1,9 @@
-import { getProvider, getAvailableProviders } from "@/lib/providers";
+import { getProvider } from "@/lib/providers";
 import { BENCHMARK_PROMPT, PROVIDERS } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(
+export async function POST(
   request: Request,
   { params }: { params: Promise<{ provider: string }> }
 ): Promise<Response> {
@@ -14,9 +14,17 @@ export async function GET(
     return Response.json({ error: "Unknown provider" }, { status: 400 });
   }
 
-  if (!process.env[providerConfig.envKey]) {
+  let body: { apiKey?: string } = {};
+  try {
+    body = await request.json();
+  } catch {
+    // empty body is fine — will fall back to env key
+  }
+
+  const apiKey = body.apiKey || process.env[providerConfig.envKey];
+  if (!apiKey) {
     return Response.json(
-      { error: `API key not configured for ${providerConfig.name}` },
+      { error: `API key not configured for ${providerConfig.name}. Provide your own key or ask the server admin to set ${providerConfig.envKey}.` },
       { status: 400 }
     );
   }
@@ -27,7 +35,7 @@ export async function GET(
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const event of provider.stream(BENCHMARK_PROMPT)) {
+        for await (const event of provider.stream(BENCHMARK_PROMPT, apiKey)) {
           const data = `data: ${JSON.stringify(event)}\n\n`;
           controller.enqueue(encoder.encode(data));
 

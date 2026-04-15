@@ -7,11 +7,15 @@ import BenchmarkGauge from "./BenchmarkGauge";
 import MetricsPanel from "./MetricsPanel";
 import ProviderSelector from "./ProviderSelector";
 import ResultsTable from "./ResultsTable";
+import CommunityResults from "./CommunityResults";
 import StartButton from "./StartButton";
+import ApiKeyManager, { loadApiKeys } from "./ApiKeyManager";
 
 export default function SpeedTest() {
-  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [allProviders, setAllProviders] = useState<ProviderConfig[]>([]);
+  const [serverProviderIds, setServerProviderIds] = useState<string[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
 
   const {
     isRunning,
@@ -23,18 +27,26 @@ export default function SpeedTest() {
     liveTtfb,
     liveElapsed,
     error,
+    benchmarkMode,
     runBenchmark,
     runAll,
     reset,
   } = useBenchmark();
 
   useEffect(() => {
+    setApiKeys(loadApiKeys());
+  }, []);
+
+  useEffect(() => {
     fetch("/api/providers")
       .then((res) => res.json())
       .then((data) => {
-        setProviders(data.providers ?? []);
-        if (data.providers?.length > 0 && !selectedProvider) {
-          setSelectedProvider(data.providers[0].id);
+        const all: ProviderConfig[] = data.allProviders ?? data.providers ?? [];
+        const server: ProviderConfig[] = data.providers ?? [];
+        setAllProviders(all);
+        setServerProviderIds(server.map((p) => p.id));
+        if (all.length > 0 && !selectedProvider) {
+          setSelectedProvider(all[0].id);
         }
       })
       .catch(() => {});
@@ -42,9 +54,13 @@ export default function SpeedTest() {
 
   const handleStart = useCallback(() => {
     if (selectedProvider) {
-      runBenchmark(selectedProvider);
+      runBenchmark(selectedProvider, apiKeys[selectedProvider]);
     }
-  }, [selectedProvider, runBenchmark]);
+  }, [selectedProvider, runBenchmark, apiKeys]);
+
+  const handleRunAll = useCallback(() => {
+    runAll(apiKeys);
+  }, [runAll, apiKeys]);
 
   const displayTps = isRunning ? liveTps : (metrics?.tps ?? 0);
 
@@ -56,16 +72,25 @@ export default function SpeedTest() {
           AI Speed Test
         </h1>
         <p className="text-gray-500 mt-2 text-sm">
-          Benchmark AI providers — measure tokens per second, latency &amp; more
+          Benchmark AI providers — measure tokens per second, latency, cache &amp; more
         </p>
       </div>
 
       {/* Provider Selector */}
       <ProviderSelector
-        providers={providers}
+        providers={allProviders}
         selected={selectedProvider}
         onSelect={setSelectedProvider}
         disabled={isRunning}
+        apiKeys={apiKeys}
+        serverProviderIds={serverProviderIds}
+      />
+
+      {/* BYOK API Keys */}
+      <ApiKeyManager
+        providers={allProviders}
+        apiKeys={apiKeys}
+        onKeysChange={setApiKeys}
       />
 
       {/* Gauge */}
@@ -82,10 +107,10 @@ export default function SpeedTest() {
       />
 
       {/* Actions */}
-      <div className="flex gap-3 items-center">
+      <div className="flex gap-3 items-center flex-wrap justify-center">
         <StartButton onClick={handleStart} isRunning={isRunning} />
         <StartButton
-          onClick={runAll}
+          onClick={handleRunAll}
           isRunning={isRunning}
           label="Benchmark All"
         />
@@ -98,6 +123,22 @@ export default function SpeedTest() {
           </button>
         )}
       </div>
+
+      {/* Benchmark mode indicator */}
+      {isRunning && benchmarkMode && (
+        <div className="flex items-center gap-2">
+          <span
+            className={`inline-block w-2 h-2 rounded-full ${
+              benchmarkMode === "client" ? "bg-green-400" : "bg-yellow-400"
+            }`}
+          />
+          <span className="text-xs text-gray-500">
+            {benchmarkMode === "client"
+              ? "Direct from your browser — true end-to-end latency"
+              : "Via server proxy — latency reflects server-to-provider"}
+          </span>
+        </div>
+      )}
 
       {/* Error */}
       {error && (
@@ -113,8 +154,11 @@ export default function SpeedTest() {
         </p>
       )}
 
-      {/* Results */}
+      {/* Session Results */}
       <ResultsTable results={allResults} />
+
+      {/* Community Results */}
+      <CommunityResults />
     </div>
   );
 }
