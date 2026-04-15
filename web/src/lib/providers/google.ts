@@ -1,0 +1,58 @@
+import { GoogleGenerativeAI } from "@google/generative-ai";
+import { BenchmarkProvider, ProviderConfig } from "./index";
+import { BenchmarkEvent, BenchmarkMetrics } from "../metrics";
+
+export class GoogleProvider implements BenchmarkProvider {
+  config: ProviderConfig;
+
+  constructor(config: ProviderConfig) {
+    this.config = config;
+  }
+
+  async *stream(prompt: string): AsyncGenerator<BenchmarkEvent> {
+    const apiKey = process.env[this.config.envKey];
+    if (!apiKey) throw new Error(`Missing ${this.config.envKey}`);
+
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: this.config.model });
+    const start = performance.now();
+    let firstChunkTime: number | null = null;
+    let totalTokens = 0;
+    const inputTokens = 0;
+
+    yield { type: "start", provider: this.config.name, model: this.config.model };
+
+    try {
+      const result = await model.generateContentStream(prompt);
+
+      for await (const chunk of result.stream) {
+        const elapsed = performance.now() - start;
+        const content = chunk.text();
+
+        if (content) {
+          if (firstChunkTime === null) firstChunkTime = elapsed;
+          const tokenCount = Math.ceil(content.length / 4);
+          totalTokens += tokenCount;
+
+          yield { type: "chunk", content, tokenCount, elapsed };
+        }
+      }
+
+      const totalLatency = performance.now() - start;
+      const metrics: BenchmarkMetrics = {
+        provider: this.config.name,
+        model: this.config.model,
+        tps: totalTokens / (totalLatency / 1000),
+        ttfb: firstChunkTime ?? totalLatency,
+        totalLatency,
+        outputTokens: totalTokens,
+        inputTokens,
+        timestamp: Date.now(),
+      };
+
+      yield { type: "complete", metrics };
+    } catch (err) {
+      yield { type: "error", error: err instanceof Error ? err.message : String(err) };
+    }
+  }
+}
