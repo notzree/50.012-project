@@ -9,12 +9,13 @@ export class AnthropicProvider implements BenchmarkProvider {
     this.config = config;
   }
 
-  async *stream(prompt: string): AsyncGenerator<BenchmarkEvent> {
-    const client = new Anthropic({ apiKey: process.env[this.config.envKey] });
+  async *stream(prompt: string, apiKey: string): AsyncGenerator<BenchmarkEvent> {
+    const client = new Anthropic({ apiKey });
     const start = performance.now();
     let firstChunkTime: number | null = null;
     let totalTokens = 0;
     let inputTokens = 0;
+    let cacheReadTokens = 0;
 
     yield { type: "start", provider: this.config.name, model: this.config.model };
 
@@ -49,9 +50,16 @@ export class AnthropicProvider implements BenchmarkProvider {
       if (finalMessage.usage) {
         inputTokens = finalMessage.usage.input_tokens;
         totalTokens = finalMessage.usage.output_tokens;
+        const usage = finalMessage.usage as unknown as Record<string, number>;
+        cacheReadTokens = usage.cache_read_input_tokens ?? 0;
       }
 
       const totalLatency = performance.now() - start;
+      let cacheStatus: "hit" | "miss" | "unknown" = "unknown";
+      if (inputTokens > 0) {
+        cacheStatus = cacheReadTokens > 0 ? "hit" : "miss";
+      }
+
       const metrics: BenchmarkMetrics = {
         provider: this.config.name,
         model: this.config.model,
@@ -60,6 +68,7 @@ export class AnthropicProvider implements BenchmarkProvider {
         totalLatency,
         outputTokens: totalTokens,
         inputTokens,
+        cacheStatus,
         timestamp: Date.now(),
       };
 

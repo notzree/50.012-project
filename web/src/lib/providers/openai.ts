@@ -9,12 +9,13 @@ export class OpenAIProvider implements BenchmarkProvider {
     this.config = config;
   }
 
-  async *stream(prompt: string): AsyncGenerator<BenchmarkEvent> {
-    const client = new OpenAI({ apiKey: process.env[this.config.envKey] });
+  async *stream(prompt: string, apiKey: string): AsyncGenerator<BenchmarkEvent> {
+    const client = new OpenAI({ apiKey });
     const start = performance.now();
     let firstChunkTime: number | null = null;
     let totalTokens = 0;
     let inputTokens = 0;
+    let cachedTokens = 0;
 
     yield { type: "start", provider: this.config.name, model: this.config.model };
 
@@ -32,6 +33,10 @@ export class OpenAIProvider implements BenchmarkProvider {
 
         if (chunk.usage) {
           inputTokens = chunk.usage.prompt_tokens ?? 0;
+          const details = chunk.usage.prompt_tokens_details;
+          if (details && "cached_tokens" in details) {
+            cachedTokens = (details as Record<string, number>).cached_tokens ?? 0;
+          }
         }
 
         if (content) {
@@ -44,6 +49,11 @@ export class OpenAIProvider implements BenchmarkProvider {
       }
 
       const totalLatency = performance.now() - start;
+      let cacheStatus: "hit" | "miss" | "unknown" = "unknown";
+      if (inputTokens > 0) {
+        cacheStatus = cachedTokens > 0 ? "hit" : "miss";
+      }
+
       const metrics: BenchmarkMetrics = {
         provider: this.config.name,
         model: this.config.model,
@@ -52,6 +62,7 @@ export class OpenAIProvider implements BenchmarkProvider {
         totalLatency,
         outputTokens: totalTokens,
         inputTokens,
+        cacheStatus,
         timestamp: Date.now(),
       };
 

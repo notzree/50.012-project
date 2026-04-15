@@ -10,7 +10,7 @@ export interface ProviderConfig {
 
 export interface BenchmarkProvider {
   config: ProviderConfig;
-  stream(prompt: string): AsyncGenerator<BenchmarkEvent>;
+  stream(prompt: string, apiKey: string): AsyncGenerator<BenchmarkEvent>;
 }
 
 export function getProvider(id: string): BenchmarkProvider {

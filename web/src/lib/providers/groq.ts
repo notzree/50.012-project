@@ -2,6 +2,8 @@ import Groq from "groq-sdk";
 import { BenchmarkProvider, ProviderConfig } from "./index";
 import { BenchmarkEvent, BenchmarkMetrics } from "../metrics";
 
+const GROQ_CACHE_TTFB_THRESHOLD_MS = 100;
+
 export class GroqProvider implements BenchmarkProvider {
   config: ProviderConfig;
 
@@ -9,8 +11,8 @@ export class GroqProvider implements BenchmarkProvider {
     this.config = config;
   }
 
-  async *stream(prompt: string): AsyncGenerator<BenchmarkEvent> {
-    const client = new Groq({ apiKey: process.env[this.config.envKey] });
+  async *stream(prompt: string, apiKey: string): AsyncGenerator<BenchmarkEvent> {
+    const client = new Groq({ apiKey });
     const start = performance.now();
     let firstChunkTime: number | null = null;
     let totalTokens = 0;
@@ -44,14 +46,19 @@ export class GroqProvider implements BenchmarkProvider {
       }
 
       const totalLatency = performance.now() - start;
+      const ttfb = firstChunkTime ?? totalLatency;
+      const cacheStatus: "hit" | "miss" | "unknown" =
+        ttfb < GROQ_CACHE_TTFB_THRESHOLD_MS ? "hit" : "unknown";
+
       const metrics: BenchmarkMetrics = {
         provider: this.config.name,
         model: this.config.model,
         tps: totalTokens / (totalLatency / 1000),
-        ttfb: firstChunkTime ?? totalLatency,
+        ttfb,
         totalLatency,
         outputTokens: totalTokens,
         inputTokens,
+        cacheStatus,
         timestamp: Date.now(),
       };
 

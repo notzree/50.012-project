@@ -1,8 +1,12 @@
+import { PROVIDERS } from "@/lib/constants";
 import { getAvailableProviders } from "@/lib/providers";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const providers = getAvailableProviders();
-  return Response.json({ providers });
+  const serverProviders = getAvailableProviders();
+  return Response.json({
+    providers: serverProviders,
+    allProviders: PROVIDERS,
+  });
 }

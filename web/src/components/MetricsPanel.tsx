@@ -33,6 +33,26 @@ function MetricCard({
   );
 }
 
+function CacheBadge({ status }: { status: "hit" | "miss" | "unknown" }) {
+  const config = {
+    hit: { label: "HIT", classes: "bg-green-500/20 text-green-400 border-green-500/30" },
+    miss: { label: "MISS", classes: "bg-red-500/20 text-red-400 border-red-500/30" },
+    unknown: { label: "—", classes: "bg-gray-800 text-gray-500 border-gray-700" },
+  };
+  const c = config[status];
+  return (
+    <div className="flex flex-col items-center rounded-xl bg-gray-900/60 border border-gray-800 px-4 py-3 min-w-[120px]">
+      <span className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+        Cache
+      </span>
+      <span className={`text-sm font-semibold px-2 py-0.5 rounded-full border ${c.classes}`}>
+        {c.label}
+      </span>
+      <span className="text-xs text-gray-600">&nbsp;</span>
+    </div>
+  );
+}
+
 export default function MetricsPanel({
   metrics,
   liveTps,
@@ -46,14 +66,11 @@ export default function MetricsPanel({
   const tokens = isRunning ? liveTokens : (metrics?.outputTokens ?? 0);
   const elapsed = isRunning ? liveElapsed : (metrics?.totalLatency ?? 0);
   const inputTokens = metrics?.inputTokens ?? 0;
+  const cacheStatus = metrics?.cacheStatus ?? "unknown";
 
   return (
     <div className="flex flex-wrap gap-3 justify-center">
-      <MetricCard
-        label="TPS"
-        value={tps.toFixed(1)}
-        unit="tok/s"
-      />
+      <MetricCard label="TPS" value={tps.toFixed(1)} unit="tok/s" />
       <MetricCard
         label="TTFB"
         value={ttfb !== null ? ttfb.toFixed(0) : "—"}
@@ -64,16 +81,9 @@ export default function MetricsPanel({
         value={elapsed > 0 ? (elapsed / 1000).toFixed(2) : "—"}
         unit="sec"
       />
-      <MetricCard
-        label="Output"
-        value={tokens}
-        unit="tokens"
-      />
-      <MetricCard
-        label="Input"
-        value={inputTokens || "—"}
-        unit="tokens"
-      />
+      <MetricCard label="Output" value={tokens} unit="tokens" />
+      <MetricCard label="Input" value={inputTokens || "—"} unit="tokens" />
+      {!isRunning && metrics && <CacheBadge status={cacheStatus} />}
     </div>
   );
 }

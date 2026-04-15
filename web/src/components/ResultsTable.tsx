@@ -6,6 +6,16 @@ interface ResultsTableProps {
   results: BenchmarkMetrics[];
 }
 
+function CacheBadge({ status }: { status: "hit" | "miss" | "unknown" }) {
+  const config = {
+    hit: { label: "HIT", cls: "text-green-400" },
+    miss: { label: "MISS", cls: "text-red-400" },
+    unknown: { label: "—", cls: "text-gray-600" },
+  };
+  const c = config[status];
+  return <span className={`text-xs font-medium ${c.cls}`}>{c.label}</span>;
+}
+
 export default function ResultsTable({ results }: ResultsTableProps) {
   if (results.length === 0) return null;
 
@@ -26,6 +36,7 @@ export default function ResultsTable({ results }: ResultsTableProps) {
               <th className="px-4 py-3 text-right">TTFB</th>
               <th className="px-4 py-3 text-right">Latency</th>
               <th className="px-4 py-3 text-right">Tokens</th>
+              <th className="px-4 py-3 text-center">Cache</th>
             </tr>
           </thead>
           <tbody>
@@ -60,6 +71,9 @@ export default function ResultsTable({ results }: ResultsTableProps) {
                 </td>
                 <td className="px-4 py-3 text-right tabular-nums">
                   {result.outputTokens}
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <CacheBadge status={result.cacheStatus} />
                 </td>
               </tr>
             ))}

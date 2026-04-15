@@ -1,3 +1,11 @@
+export interface UserLocation {
+  city: string;
+  region: string;
+  country: string;
+  lat: number;
+  lon: number;
+}
+
 export interface BenchmarkMetrics {
   provider: string;
   model: string;
@@ -6,8 +14,19 @@ export interface BenchmarkMetrics {
   totalLatency: number;
   outputTokens: number;
   inputTokens: number;
+  cacheStatus: "hit" | "miss" | "unknown";
   timestamp: number;
   error?: string;
+}
+
+export interface CrowdsourcedResult extends BenchmarkMetrics {
+  id?: string;
+  userCity?: string;
+  userRegion?: string;
+  userCountry?: string;
+  userLat?: number;
+  userLon?: number;
+  serverRegion?: string;
 }
 
 export interface StreamingChunkEvent {
