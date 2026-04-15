@@ -162,7 +162,7 @@ The following tasks are **independent** and can be executed in parallel by separ
 
 ---
 
-### Task 1: Scaffold & Project Setup
+### Task 1: Scaffold & Project Setup ✅ COMPLETE
 
 **Goal:** Create the Next.js project skeleton in `/workspace/web` with all dependencies and configuration.
 
@@ -197,7 +197,7 @@ The following tasks are **independent** and can be executed in parallel by separ
 
 ---
 
-### Task 2: Provider Implementations (Server-Side)
+### Task 2: Provider Implementations (Server-Side) ✅ COMPLETE
 
 **Goal:** Implement the streaming AI provider clients in `src/lib/providers/`.
 
@@ -244,7 +244,7 @@ The following tasks are **independent** and can be executed in parallel by separ
 
 ---
 
-### Task 3: API Route — `/api/benchmark/[provider]`
+### Task 3: API Route — `/api/benchmark/[provider]` ✅ COMPLETE
 
 **Goal:** Implement the Next.js App Router API route that streams benchmark events as Server-Sent Events (SSE).
 
@@ -289,7 +289,7 @@ The following tasks are **independent** and can be executed in parallel by separ
 
 ---
 
-### Task 4: Frontend — `useBenchmark` Hook
+### Task 4: Frontend — `useBenchmark` Hook ✅ COMPLETE
 
 **Goal:** Implement the React hook that manages benchmark state and consumes the SSE stream from the API.
 
@@ -343,7 +343,7 @@ export interface UseBenchmarkReturn {
 
 ---
 
-### Task 5: Frontend — UI Components & Page
+### Task 5: Frontend — UI Components & Page ✅ COMPLETE
 
 **Goal:** Build the single-page speedtest UI with all visual components.
 
