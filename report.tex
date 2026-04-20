@@ -41,50 +41,57 @@ Current observability tools provided by AI vendors are fragmented. While tools l
 
 \section{Approach Formulation and Execution}
 \subsection{Our Approach}
-We propose and implement an ``AI Speed Test'', a web-based benchmarking application. The tool executes standardized, deterministic prompts against multiple LLM providers. By capturing timestamps throughout the HTTP streaming response lifecycle, the tool calculates:
-\begin{itemize}
-    \item \textbf{Time To First Token (TTFT):} Analogous to the startup delay in multimedia streaming.
-    \item \textbf{Tokens Per Second (TPS):} The continuous throughput of the generation playout.
-    \item \textbf{Total Latency:} The end-to-end network plus processing delay.
-\end{itemize}
+We propose and implement an ``AI Speed Test'', a web-based benchmarking application. The tool executes standardized, deterministic prompts against multiple LLM providers. By capturing timestamps throughout the HTTP streaming response lifecycle, the tool calculates Time To First Token (TTFT), Tokens Per Second (TPS), and total latency.
 
-\subsection{Execution \& System Setup}
-Our application is built using Next.js and React. It leverages Server-Sent Events (SSE) and HTTP streaming to process model outputs in real-time. 
+\subsection{Execution \& System Architecture}
+In order to capture and synchronize crowdsourced network intelligence asynchronously amongst peers, we constructed a sophisticated full-stack architecture mapping the entire data lifecycle:
 
-\textbf{Execution Architecture:}
 \begin{itemize}
-    \item \textbf{Proxy APIs:} We built custom Next.js Route Handlers to securely broker requests to OpenAI, Anthropic, Google, and Groq.
-    \item \textbf{Front-end Orchestrator:} We implemented an event-driven `useBenchmark` React hook that coordinates API key injection, asynchronous fetching, and real-time metric calculation.
-    \item \textbf{Data Persistence:} A Turso (libSQL) SQLite database persists the crowdsourced results, capturing geographical data alongside performance metrics.
+    \item \textbf{Frontend Orchestrator (\texttt{useBenchmark}):} We constructed a dynamic React interface prioritizing high-granularity evaluation. Users drill down past the provider-level to target specific models (e.g., distinguishing between Google's \texttt{gemini-1.5-flash} and \texttt{gemini-2.0-flash}). Upon execution, it leverages browser and IP-based geolocation APIs to tag the user's geographic region, appending vital network-routing context to the benchmark.
+    
+    \item \textbf{API Proxies \& Telemetry (\texttt{/api/benchmark}):} Next.js Route Handlers securely broker requests to the provider SDKs via Server-Sent Events (SSE). The system measures atomic timestamp differentials across the TCP stream, identifying exactly when the initial byte is returned (TTFT) and mathematically aggregating the subsequent stream velocity (TPS).
+    
+    \item \textbf{Centralized Database Aggregation (\texttt{Turso \& libSQL}):} To solve the problem of isolated local benchmarks, the application pipes telemetry directly into a distributed, serverless Turso SQLite database. This allows distributed teammates—spanning different network configurations and paid API tier access—to asynchronously contribute to a centralized global scoreboard. The \texttt{/api/results} endpoint then executes \texttt{GROUP BY} queries across provider, model, and region to instantly populate the application's Community Results dashboard.
 \end{itemize}
 
 \subsection{Network Layer Connections}
-This project heavily emphasizes L2 (Application Layer) via HTTP REST architectures, but directly relates to Transport Layer constraints. The Time to First Token (TTFT) is fundamentally impacted by the TCP handshake and RTT to distributed CDNs or edge endpoints handling the LLM routing. The subsequent token emission throughput depends significantly on window sizes and server-side model congestion.
+This project heavily emphasizes L2 (Application Layer) via HTTP REST architectures, but directly relates to Transport Layer constraints. The Time to First Token (TTFT) is fundamentally impacted by the TCP handshake and RTT to distributed CDNs or edge endpoints handling the LLM routing. Furthermore, correlating geographic location tags against TTFT allows us to empirically observe CDN routing optimization behavior among various models.
 
 \section{Sharing of Findings \& Quantitative Results}
-\textit{Note to Team: We require empirical data from our local/deployed benchmarks to complete this section. Once the application generates data, we can fill the tables below.}
 
-\subsection{Empirical Benchmarking Data}
-We executed our benchmark suite across 4 major providers from a local testing environment in Singapore.
+\textit{Note: Our experimental execution remains ongoing. Because our system is built asynchronously on a centralized Turso database, peer testers across different regions are currently aggregating data against multiple permutations of Providers and Models. The structure below illustrates how findings will be analytically formatted.}
+
+\subsection{Aggregated Benchmarking Data}
+To accurately capture the latency matrix, we segregate data by \textbf{Provider}, \textbf{Granular Model}, and \textbf{Geographic Region}. This ensures we are not merely comparing "OpenAI to Google" but dissecting how network topology to a specific region interfaces with model complexity.
 
 \begin{table}[h]
 \centering
-\begin{tabular}{@{}llccc@{}}
+\resizebox{\textwidth}{!}{%
+\begin{tabular}{@{}lllccc@{}}
 \toprule
-\textbf{Provider} & \textbf{Model} & \textbf{Avg TTFT (ms)} & \textbf{Avg TPS} & \textbf{Success Rate} \\ \midrule
-OpenAI            & gpt-4o-mini    & [DATA REQUIRED]        & [DATA REQUIRED]  & [DATA REQUIRED]       \\
-Anthropic         & claude-3-haiku & [DATA REQUIRED]        & [DATA REQUIRED]  & [DATA REQUIRED]       \\
-Google            & gemini-1.5-flash & [DATA REQUIRED]      & [DATA REQUIRED]  & [DATA REQUIRED]       \\
-Groq              & llama3-8b-8192 & [DATA REQUIRED]        & [DATA REQUIRED]  & [DATA REQUIRED]       \\ \bottomrule
-\end{tabular}
-\caption{Comparative benchmarking results of leading LLM APIs.}
-\label{tab:benchmark_results}
+\textbf{Provider} & \textbf{Model} & \textbf{Region} & \textbf{Avg TTFT (ms)} & \textbf{Avg TPS} & \textbf{Test Runs} \\ \midrule
+OpenAI            & gpt-4o-mini      & Singapore (SG) & [DATA] & [DATA] & [DATA] \\
+OpenAI            & gpt-4o           & Singapore (SG) & [DATA] & [DATA] & [DATA] \\
+Google Gemini     & gemini-1.5-flash & Singapore (SG) & [DATA] & [DATA] & [DATA] \\
+Google Gemini     & gemini-2.5-flash & London (UK)    & [DATA] & [DATA] & [DATA] \\
+Groq              & llama-3.3-70b    & New York (UK)  & [DATA] & [DATA] & [DATA] \\
+Anthropic         & claude-3-5-haiku & Singapore (SG) & [DATA] & [DATA] & [DATA] \\
+\bottomrule
+\end{tabular}%
+}
+\caption{Cross-provider latency and throughput aggregated by region and model constraints.}
+\label{tab:granular_results}
 \end{table}
 
-\subsection{Analysis of Findings}
-Based on the empirical evidence, we observe that [PLACEHOLDER for analysis—e.g., Groq's specialized inference hardware drastically minimizes TTFT compared to traditional GPU architectures used by established providers...]. 
+\subsection{Future Analysis \& Visualization Strategy}
+In our final presentation and expanded metrics, we will conduct quantitative analysis comparing:
+\begin{enumerate}
+    \item \textbf{Regional Latency Variance:} Demonstrating how RTT impacts TTFT across regions using plotted choropleth maps or bar charts correlating distance to CDN with response delay.
+    \item \textbf{Hardware Processing vs Network Delay:} Using Groq (LPU hardware) against traditional GPU architectures (OpenAI/Google) to mathematically isolate the "processing" delay from the "Transport" delay.
+    \item \textbf{Model Complexity Scalability:} Observing the degradation of TPS between lightweight models (\texttt{gpt-4o-mini}) and deep reasoning models (\texttt{o1-mini}) on identical network boundaries.
+\end{enumerate}
 
 \section{Conclusion}
-The ``AI Speed Test'' provides a crucial, missing capability in the modern AI engineering stack: objective, comparable system-level benchmarking of generative API endpoints. By framing LLM evaluations through the lens of traditional network streaming metrics, we enable developers to make robust architectural decisions optimizing for usability, speed, and cost.
+The ``AI Speed Test'' provides a crucial, missing capability in the modern AI engineering stack: objective, comparable system-level benchmarking of generative API endpoints. By framing LLM evaluations through the lens of traditional network streaming metrics—and crowd-sourcing regional latency via Turso—we enable an empirical foundation for production AI deployment architectures.
 
 \end{document}
