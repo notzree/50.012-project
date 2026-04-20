@@ -20,14 +20,14 @@
 \maketitle
 
 \begin{abstract}
-As Large Language Models (LLMs) transition from research to production, developers face a critical problem: the lack of standardized tooling to evaluate the real-world network and system performance of LLM APIs. Existing benchmarks focus primarily on model reasoning capabilities rather than operational metrics like tokens per second (TPS), latency, and Time to First Token (TTFT). This report details our design and development of an "AI Speed Test"—a Next.js-based web application capable of empirically benchmarking major LLM providers (e.g., OpenAI, Anthropic, Google) to inform production deployment decisions. Our approach bridges key networking concepts such as Application Layer behavior, Transport Layer properties, and Multimedia Streaming paradigms to standardize AI API evaluation.
+As Large Language Models (LLMs) transition from research to production, developers face a critical problem: the lack of standardized tooling to evaluate the real-world network and system performance of LLM APIs. Existing benchmarks focus primarily on model reasoning capabilities rather than operational metrics like tokens per second (TPS), latency, and Time to First Token (TTFT). This report details our design and development of an "AI Speed Test", a Next.js-based web application capable of empirically benchmarking major LLM providers (e.g., OpenAI, Anthropic, Google) to inform production deployment decisions. Our approach bridges key networking concepts such as Application Layer behavior, Transport Layer properties, and Multimedia Streaming paradigms to standardize AI API evaluation.
 \end{abstract}
 
 \section{Introduction \& Problem Statement}
 \subsection{Overall Problem Domain, Background, and Motivation}
 The proliferation of commercial Large Language Models (LLMs) has introduced a new paradigm in software engineering where the core application logic is dependent on third-party AI APIs. However, developers lack a standardized, objective framework to evaluate the real-world usability of these models from a network and systems perspective. 
 
-Performance measurement is aggressively becoming strategic infrastructure. This was recently underscored when Accenture acquired Ookla—the company behind Speedtest, Downdetector, RootMetrics, and Ekahau—for over \$1 billion. As AI applications transition into being real-time and user-facing, latency and throughput dictate the user experience. Organizations now urgently need ``Speedtest-like'' visibility for LLM APIs.
+Performance measurement is aggressively becoming strategic infrastructure. This was recently underscored when Accenture acquired Ookla, the company behind Speedtest, Downdetector, RootMetrics, and Ekahau, for over \$1 billion. As AI applications transition into being real-time and user-facing, latency and throughput dictate the user experience. Organizations now urgently need ``Speedtest-like'' visibility for LLM APIs.
 
 \subsection{Problem Statement}
 Existing literature and benchmarking suites focus almost exclusively on model intelligence, accuracy, and reasoning metrics (e.g., MMLU, GSM8k). Consequently, there is a distinct gap in evaluating critical production metrics: latency, throughput, reliability, and cost. Developers need a method to quantify how LLM APIs behave under real-world network conditions rather than isolated academic environments. Our goal is to shift the evaluation criterion from \textit{model intelligence} to \textit{system usability} by introducing a tool that enables developers to benchmark API performance quantitatively.
@@ -51,7 +51,7 @@ In order to capture and synchronize crowdsourced network intelligence asynchrono
     
     \item \textbf{API Proxies \& Telemetry (\texttt{/api/benchmark}):} Next.js Route Handlers securely broker requests to the provider SDKs via Server-Sent Events (SSE). The system measures atomic timestamp differentials across the TCP stream, identifying exactly when the initial byte is returned (TTFT) and mathematically aggregating the subsequent stream velocity (TPS).
     
-    \item \textbf{Centralized Database Aggregation (\texttt{Turso \& libSQL}):} To solve the problem of isolated local benchmarks, the application pipes telemetry directly into a distributed, serverless Turso SQLite database. This allows distributed teammates—spanning different network configurations and paid API tier access—to asynchronously contribute to a centralized global scoreboard. The \texttt{/api/results} endpoint then executes \texttt{GROUP BY} queries across provider, model, and region to instantly populate the application's Community Results dashboard.
+    \item \textbf{Centralized Database Aggregation (\texttt{Turso \& libSQL}):} To solve the problem of isolated local benchmarks, the application pipes telemetry directly into a distributed, serverless Turso SQLite database. This allows distributed teammates spanning different network configurations and paid API tier access to asynchronously contribute to a centralized global scoreboard. The \texttt{/api/results} endpoint then executes \texttt{GROUP BY} queries across provider, model, and region to instantly populate the application's Community Results dashboard.
 \end{itemize}
 
 \subsection{Network Layer Connections}
@@ -92,6 +92,6 @@ In our final presentation and expanded metrics, we will conduct quantitative ana
 \end{enumerate}
 
 \section{Conclusion}
-The ``AI Speed Test'' provides a crucial, missing capability in the modern AI engineering stack: objective, comparable system-level benchmarking of generative API endpoints. By framing LLM evaluations through the lens of traditional network streaming metrics—and crowd-sourcing regional latency via Turso—we enable an empirical foundation for production AI deployment architectures.
+The ``AI Speed Test'' provides a crucial, missing capability in the modern AI engineering stack: objective, comparable system-level benchmarking of generative API endpoints. By framing LLM evaluations through the lens of traditional network streaming metrics and crowd-sourcing regional latency via Turso, we enable an empirical foundation for production AI deployment architectures.
 
 \end{document}
