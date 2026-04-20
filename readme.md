@@ -53,5 +53,14 @@ To run the benchmarking suite locally:
 4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 5. Provide your API keys in the dashboard interface and initiate the benchmark!
 
+## 💾 Aggregating Data (Team Synchronization with Turso)
+By default, the benchmark saves metrics to a local SQLite file (`local.db`) on your disk. To asynchronously collect data from multiple peers into a single centralized scoreboard:
+
+1. **Environment**: In the `web` folder, make a copy of `.env.example` and rename it to `.env.local`.
+2. **Link**: Insert the Turso Database URL and Auth Token that **I sent you** into `.env.local`.
+3. Restart your `npm run dev` server. 
+
+Now, when anyone on the team runs a speed test concurrently from anywhere, their records will natively write to our shared remote database and instantly populate the Community Results dashboard!
+
 ## 👥 Logistics & Collaboration
 This project adheres to the 50.012 working logs requirements. Every team member maintains a working journal, tracking their activities, hours, and contributions, emphasizing the "do" aspect of protocol/code analysis and experiment design.
