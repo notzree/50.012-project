@@ -1,0 +1,90 @@
+\documentclass[11pt, a4paper]{article}
+
+\usepackage[utf8]{inputenc}
+\usepackage{geometry}
+\geometry{letterpaper, margin=1in}
+\usepackage{graphicx}
+\usepackage{hyperref}
+\usepackage{booktabs}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{amsmath}
+\usepackage{pgfplots}
+
+\title{50.012 Networks Project Report: \\ \textbf{AI Speed Test: Benchmarking Real-World LLM API Network Performance}}
+\author{Group XX\\ \textit{Singapore University of Technology and Design}}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+As Large Language Models (LLMs) transition from research to production, developers face a critical problem: the lack of standardized tooling to evaluate the real-world network and system performance of LLM APIs. Existing benchmarks focus primarily on model reasoning capabilities rather than operational metrics like tokens per second (TPS), latency, and Time to First Token (TTFT). This report details our design and development of an "AI Speed Test"—a Next.js-based web application capable of empirically benchmarking major LLM providers (e.g., OpenAI, Anthropic, Google) to inform production deployment decisions. Our approach bridges key networking concepts such as Application Layer behavior, Transport Layer properties, and Multimedia Streaming paradigms to standardize AI API evaluation.
+\end{abstract}
+
+\section{Introduction \& Problem Statement}
+\subsection{Overall Problem Domain, Background, and Motivation}
+The proliferation of commercial Large Language Models (LLMs) has introduced a new paradigm in software engineering where the core application logic is dependent on third-party AI APIs. However, developers lack a standardized, objective framework to evaluate the real-world usability of these models from a network and systems perspective. 
+
+Performance measurement is aggressively becoming strategic infrastructure. This was recently underscored when Accenture acquired Ookla—the company behind Speedtest, Downdetector, RootMetrics, and Ekahau—for over \$1 billion. As AI applications transition into being real-time and user-facing, latency and throughput dictate the user experience. Organizations now urgently need ``Speedtest-like'' visibility for LLM APIs.
+
+\subsection{Problem Statement}
+Existing literature and benchmarking suites focus almost exclusively on model intelligence, accuracy, and reasoning metrics (e.g., MMLU, GSM8k). Consequently, there is a distinct gap in evaluating critical production metrics: latency, throughput, reliability, and cost. Developers need a method to quantify how LLM APIs behave under real-world network conditions rather than isolated academic environments. Our goal is to shift the evaluation criterion from \textit{model intelligence} to \textit{system usability} by introducing a tool that enables developers to benchmark API performance quantitatively.
+
+\section{Literature Survey}
+\subsection{Traditional Network Observability}
+Traditional network performance measurement tools, such as Speedtest, Ping, and Traceroute, exist to evaluate raw network capability and connection stability. However, they do not account for the compute-bound delays intrinsic to AI workloads. An API response delay constitutes both the network round-trip time (RTT) and the highly variable processing time associated with auto-regressive token generation.
+
+\subsection{LLM Benchmarking Current State}
+Current observability tools provided by AI vendors are fragmented. While tools like LangSmith or Helicone offer request tracing, they do not provide an independent, cross-vendor standardized benchmark for consumer evaluation. Therefore, there is a clear need for a unified, client-driven benchmarking mechanism modeled after classic network bandwidth testing, repurposed for tokenized generation streams.
+
+\section{Approach Formulation and Execution}
+\subsection{Our Approach}
+We propose and implement an ``AI Speed Test'', a web-based benchmarking application. The tool executes standardized, deterministic prompts against multiple LLM providers. By capturing timestamps throughout the HTTP streaming response lifecycle, the tool calculates:
+\begin{itemize}
+    \item \textbf{Time To First Token (TTFT):} Analogous to the startup delay in multimedia streaming.
+    \item \textbf{Tokens Per Second (TPS):} The continuous throughput of the generation playout.
+    \item \textbf{Total Latency:} The end-to-end network plus processing delay.
+\end{itemize}
+
+\subsection{Execution \& System Setup}
+Our application is built using Next.js and React. It leverages Server-Sent Events (SSE) and HTTP streaming to process model outputs in real-time. 
+
+\textbf{Execution Architecture:}
+\begin{itemize}
+    \item \textbf{Proxy APIs:} We built custom Next.js Route Handlers to securely broker requests to OpenAI, Anthropic, Google, and Groq.
+    \item \textbf{Front-end Orchestrator:} We implemented an event-driven `useBenchmark` React hook that coordinates API key injection, asynchronous fetching, and real-time metric calculation.
+    \item \textbf{Data Persistence:} A Turso (libSQL) SQLite database persists the crowdsourced results, capturing geographical data alongside performance metrics.
+\end{itemize}
+
+\subsection{Network Layer Connections}
+This project heavily emphasizes L2 (Application Layer) via HTTP REST architectures, but directly relates to Transport Layer constraints. The Time to First Token (TTFT) is fundamentally impacted by the TCP handshake and RTT to distributed CDNs or edge endpoints handling the LLM routing. The subsequent token emission throughput depends significantly on window sizes and server-side model congestion.
+
+\section{Sharing of Findings \& Quantitative Results}
+\textit{Note to Team: We require empirical data from our local/deployed benchmarks to complete this section. Once the application generates data, we can fill the tables below.}
+
+\subsection{Empirical Benchmarking Data}
+We executed our benchmark suite across 4 major providers from a local testing environment in Singapore.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{@{}llccc@{}}
+\toprule
+\textbf{Provider} & \textbf{Model} & \textbf{Avg TTFT (ms)} & \textbf{Avg TPS} & \textbf{Success Rate} \\ \midrule
+OpenAI            & gpt-4o-mini    & [DATA REQUIRED]        & [DATA REQUIRED]  & [DATA REQUIRED]       \\
+Anthropic         & claude-3-haiku & [DATA REQUIRED]        & [DATA REQUIRED]  & [DATA REQUIRED]       \\
+Google            & gemini-1.5-flash & [DATA REQUIRED]      & [DATA REQUIRED]  & [DATA REQUIRED]       \\
+Groq              & llama3-8b-8192 & [DATA REQUIRED]        & [DATA REQUIRED]  & [DATA REQUIRED]       \\ \bottomrule
+\end{tabular}
+\caption{Comparative benchmarking results of leading LLM APIs.}
+\label{tab:benchmark_results}
+\end{table}
+
+\subsection{Analysis of Findings}
+Based on the empirical evidence, we observe that [PLACEHOLDER for analysis—e.g., Groq's specialized inference hardware drastically minimizes TTFT compared to traditional GPU architectures used by established providers...]. 
+
+\section{Conclusion}
+The ``AI Speed Test'' provides a crucial, missing capability in the modern AI engineering stack: objective, comparable system-level benchmarking of generative API endpoints. By framing LLM evaluations through the lens of traditional network streaming metrics, we enable developers to make robust architectural decisions optimizing for usability, speed, and cost.
+
+\end{document}
