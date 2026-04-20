@@ -3,6 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { ProviderConfig } from "@/lib/providers";
 import { useBenchmark } from "@/hooks/useBenchmark";
+import { getUserLocation } from "@/lib/geo";
+import { UserLocation } from "@/lib/metrics";
 import BenchmarkGauge from "./BenchmarkGauge";
 import MetricsPanel from "./MetricsPanel";
 import ProviderSelector from "./ProviderSelector";
@@ -17,6 +19,7 @@ export default function SpeedTest() {
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
   const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
+  const [location, setLocation] = useState<UserLocation | null>(null);
 
   const {
     isRunning,
@@ -36,6 +39,7 @@ export default function SpeedTest() {
 
   useEffect(() => {
     setApiKeys(loadApiKeys());
+    getUserLocation().then(setLocation);
   }, []);
 
   useEffect(() => {
@@ -82,6 +86,12 @@ export default function SpeedTest() {
         <p className="text-gray-500 mt-2 text-sm">
           Benchmark AI providers — measure tokens per second, latency, cache &amp; more
         </p>
+        
+        {location && (
+          <div className="flex items-center justify-center mt-4 text-xs font-medium text-blue-400 bg-blue-500/10 px-3 py-1.5 rounded-full w-max mx-auto shadow-sm">
+            📍 Testing from {location.city ? `${location.city}, ${location.country}` : "Unknown Location"}
+          </div>
+        )}
       </div>
 
       {/* Provider Selector */}

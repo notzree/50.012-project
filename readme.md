@@ -57,7 +57,7 @@ To run the benchmarking suite locally:
 By default, the benchmark saves metrics to a local SQLite file (`local.db`) on your disk. To asynchronously collect data from multiple peers into a single centralized scoreboard:
 
 1. **Environment**: In the `web` folder, make a copy of `.env.example` and rename it to `.env.local`.
-2. **Link**: Insert the Turso Database URL and Auth Token that **I sent you** into `.env.local`.
+2. **Link**: Insert the Turso Database URL and Auth Token that you have access to into `.env.local`.
 3. Restart your `npm run dev` server. 
 
 Now, when anyone on the team runs a speed test concurrently from anywhere, their records will natively write to our shared remote database and instantly populate the Community Results dashboard!
