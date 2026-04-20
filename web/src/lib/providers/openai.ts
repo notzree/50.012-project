@@ -9,7 +9,7 @@ export class OpenAIProvider implements BenchmarkProvider {
     this.config = config;
   }
 
-  async *stream(prompt: string, apiKey: string): AsyncGenerator<BenchmarkEvent> {
+  async *stream(prompt: string, apiKey: string, modelId: string): AsyncGenerator<BenchmarkEvent> {
     const client = new OpenAI({ apiKey });
     const start = performance.now();
     let firstChunkTime: number | null = null;
@@ -17,11 +17,11 @@ export class OpenAIProvider implements BenchmarkProvider {
     let inputTokens = 0;
     let cachedTokens = 0;
 
-    yield { type: "start", provider: this.config.name, model: this.config.model };
+    yield { type: "start", provider: this.config.name, model: modelId };
 
     try {
       const response = await client.chat.completions.create({
-        model: this.config.model,
+        model: modelId,
         messages: [{ role: "user", content: prompt }],
         stream: true,
         stream_options: { include_usage: true },
@@ -56,7 +56,7 @@ export class OpenAIProvider implements BenchmarkProvider {
 
       const metrics: BenchmarkMetrics = {
         provider: this.config.name,
-        model: this.config.model,
+        model: modelId,
         tps: totalTokens / (totalLatency / 1000),
         ttfb: firstChunkTime ?? totalLatency,
         totalLatency,

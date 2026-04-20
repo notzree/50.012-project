@@ -20,8 +20,8 @@ export interface UseBenchmarkReturn {
   error: string | null;
   benchmarkMode: "client" | "server" | null;
 
-  runBenchmark: (providerId: string, apiKey?: string) => Promise<void>;
-  runAll: (apiKeys: Record<string, string>) => Promise<void>;
+  runBenchmark: (providerId: string, model: string, apiKey?: string) => Promise<void>;
+  runAll: (apiKeys: Record<string, string>, selectedModels?: Record<string, string>) => Promise<void>;
   reset: () => void;
 }
 
@@ -75,17 +75,14 @@ export function useBenchmark(): UseBenchmarkReturn {
   }, []);
 
   const runClientSide = useCallback(
-    async (providerId: string, apiKey: string, signal: AbortSignal) => {
+    async (providerId: string, model: string, apiKey: string, signal: AbortSignal) => {
       const streamer = getClientStreamer(providerId);
       if (!streamer) throw new Error("No client streamer for this provider");
-
-      const providerConfig = PROVIDERS.find((p) => p.id === providerId);
-      if (!providerConfig) throw new Error("Unknown provider");
 
       let tokenAccum = 0;
       let contentAccum = "";
 
-      await streamer(BENCHMARK_PROMPT, apiKey, providerConfig.model, signal, {
+      await streamer(BENCHMARK_PROMPT, apiKey, model, signal, {
         onEvent: (event: BenchmarkEvent) => {
           switch (event.type) {
             case "chunk": {
@@ -119,11 +116,11 @@ export function useBenchmark(): UseBenchmarkReturn {
   );
 
   const runServerSide = useCallback(
-    async (providerId: string, apiKey: string | undefined, signal: AbortSignal) => {
+    async (providerId: string, model: string, apiKey: string | undefined, signal: AbortSignal) => {
       const response = await fetch(`/api/benchmark/${providerId}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: apiKey || undefined }),
+        body: JSON.stringify({ model, apiKey: apiKey || undefined }),
         signal,
       });
 
@@ -191,7 +188,7 @@ export function useBenchmark(): UseBenchmarkReturn {
   );
 
   const runBenchmark = useCallback(
-    async (providerId: string, apiKey?: string) => {
+    async (providerId: string, model: string, apiKey?: string) => {
       abortRef.current?.abort();
       const controller = new AbortController();
       abortRef.current = controller;
@@ -209,9 +206,9 @@ export function useBenchmark(): UseBenchmarkReturn {
 
       try {
         if (useClient) {
-          await runClientSide(providerId, apiKey!, controller.signal);
+          await runClientSide(providerId, model, apiKey!, controller.signal);
         } else {
-          await runServerSide(providerId, apiKey, controller.signal);
+          await runServerSide(providerId, model, apiKey, controller.signal);
         }
       } catch (err) {
         if ((err as Error).name !== "AbortError") {
@@ -225,7 +222,7 @@ export function useBenchmark(): UseBenchmarkReturn {
   );
 
   const runAll = useCallback(
-    async (apiKeys: Record<string, string>) => {
+    async (apiKeys: Record<string, string>, selectedModels?: Record<string, string>) => {
       try {
         const res = await fetch("/api/providers");
         const data = await res.json();
@@ -238,7 +235,8 @@ export function useBenchmark(): UseBenchmarkReturn {
         );
 
         for (const provider of runnableProviders) {
-          await runBenchmark(provider.id, apiKeys[provider.id]);
+          const modelToRun = selectedModels?.[provider.id] || provider.models?.[0];
+          await runBenchmark(provider.id, modelToRun, apiKeys[provider.id]);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : String(err));

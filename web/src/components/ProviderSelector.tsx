@@ -6,6 +6,8 @@ interface ProviderSelectorProps {
   providers: ProviderConfig[];
   selected: string | null;
   onSelect: (id: string) => void;
+  selectedModels: Record<string, string>;
+  onModelSelect: (providerId: string, model: string) => void;
   disabled: boolean;
   apiKeys: Record<string, string>;
   serverProviderIds: string[];
@@ -15,6 +17,8 @@ export default function ProviderSelector({
   providers,
   selected,
   onSelect,
+  selectedModels,
+  onModelSelect,
   disabled,
   apiKeys,
   serverProviderIds,
@@ -46,7 +50,25 @@ export default function ProviderSelector({
             } ${disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
           >
             <span className="font-medium text-sm">{provider.name}</span>
-            <span className="text-xs text-gray-500 mt-0.5">{provider.model}</span>
+            {selected === provider.id ? (
+              <select
+                value={selectedModels[provider.id] || provider.models[0]}
+                onChange={(e) => onModelSelect(provider.id, e.target.value)}
+                disabled={disabled}
+                className="mt-1 text-xs bg-gray-800 border border-gray-600 rounded px-1 py-0.5 outline-none text-gray-200 cursor-pointer disabled:cursor-not-allowed"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {provider.models.map((m) => (
+                  <option key={m} value={m}>
+                    {m}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <span className="text-xs text-gray-500 mt-0.5">
+                {selectedModels[provider.id] || provider.models[0]}
+              </span>
+            )}
             <span
               className={`absolute top-1.5 right-1.5 w-2 h-2 rounded-full ${
                 hasKey ? "bg-green-400" : "bg-gray-600"

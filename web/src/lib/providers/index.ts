@@ -4,13 +4,13 @@ import { PROVIDERS } from "../constants";
 export interface ProviderConfig {
   id: string;
   name: string;
-  model: string;
+  models: string[];
   envKey: string;
 }
 
 export interface BenchmarkProvider {
   config: ProviderConfig;
-  stream(prompt: string, apiKey: string): AsyncGenerator<BenchmarkEvent>;
+  stream(prompt: string, apiKey: string, model: string): AsyncGenerator<BenchmarkEvent>;
 }
 
 export function getProvider(id: string): BenchmarkProvider {

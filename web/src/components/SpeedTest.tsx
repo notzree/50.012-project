@@ -15,6 +15,7 @@ export default function SpeedTest() {
   const [allProviders, setAllProviders] = useState<ProviderConfig[]>([]);
   const [serverProviderIds, setServerProviderIds] = useState<string[]>([]);
   const [selectedProvider, setSelectedProvider] = useState<string | null>(null);
+  const [selectedModels, setSelectedModels] = useState<Record<string, string>>({});
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
 
   const {
@@ -52,15 +53,22 @@ export default function SpeedTest() {
       .catch(() => {});
   }, []);
 
+  const handleModelSelect = useCallback((providerId: string, model: string) => {
+    setSelectedModels((prev) => ({ ...prev, [providerId]: model }));
+  }, []);
+
   const handleStart = useCallback(() => {
     if (selectedProvider) {
-      runBenchmark(selectedProvider, apiKeys[selectedProvider]);
+      const config = allProviders.find((p) => p.id === selectedProvider);
+      if (!config) return;
+      const modelToRun = selectedModels[selectedProvider] || config.models[0];
+      runBenchmark(selectedProvider, modelToRun, apiKeys[selectedProvider]);
     }
-  }, [selectedProvider, runBenchmark, apiKeys]);
+  }, [selectedProvider, selectedModels, allProviders, runBenchmark, apiKeys]);
 
   const handleRunAll = useCallback(() => {
-    runAll(apiKeys);
-  }, [runAll, apiKeys]);
+    runAll(apiKeys, selectedModels);
+  }, [runAll, apiKeys, selectedModels]);
 
   const displayTps = isRunning ? liveTps : (metrics?.tps ?? 0);
 
@@ -81,6 +89,8 @@ export default function SpeedTest() {
         providers={allProviders}
         selected={selectedProvider}
         onSelect={setSelectedProvider}
+        selectedModels={selectedModels}
+        onModelSelect={handleModelSelect}
         disabled={isRunning}
         apiKeys={apiKeys}
         serverProviderIds={serverProviderIds}

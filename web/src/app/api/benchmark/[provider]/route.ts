@@ -14,7 +14,7 @@ export async function POST(
     return Response.json({ error: "Unknown provider" }, { status: 400 });
   }
 
-  let body: { apiKey?: string } = {};
+  let body: { apiKey?: string; model?: string } = {};
   try {
     body = await request.json();
   } catch {
@@ -31,11 +31,12 @@ export async function POST(
 
   const provider = getProvider(providerId);
   const encoder = new TextEncoder();
+  const selectedModel = body.model || providerConfig.models[0];
 
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const event of provider.stream(BENCHMARK_PROMPT, apiKey)) {
+        for await (const event of provider.stream(BENCHMARK_PROMPT, apiKey, selectedModel)) {
           const data = `data: ${JSON.stringify(event)}\n\n`;
           controller.enqueue(encoder.encode(data));
 

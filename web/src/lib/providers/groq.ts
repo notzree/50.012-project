@@ -11,18 +11,18 @@ export class GroqProvider implements BenchmarkProvider {
     this.config = config;
   }
 
-  async *stream(prompt: string, apiKey: string): AsyncGenerator<BenchmarkEvent> {
+  async *stream(prompt: string, apiKey: string, modelId: string): AsyncGenerator<BenchmarkEvent> {
     const client = new Groq({ apiKey });
     const start = performance.now();
     let firstChunkTime: number | null = null;
     let totalTokens = 0;
     let inputTokens = 0;
 
-    yield { type: "start", provider: this.config.name, model: this.config.model };
+    yield { type: "start", provider: this.config.name, model: modelId };
 
     try {
       const response = await client.chat.completions.create({
-        model: this.config.model,
+        model: modelId,
         messages: [{ role: "user", content: prompt }],
         stream: true,
       });
@@ -52,7 +52,7 @@ export class GroqProvider implements BenchmarkProvider {
 
       const metrics: BenchmarkMetrics = {
         provider: this.config.name,
-        model: this.config.model,
+        model: modelId,
         tps: totalTokens / (totalLatency / 1000),
         ttfb,
         totalLatency,
