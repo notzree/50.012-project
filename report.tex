@@ -37,40 +37,47 @@ From a \textbf{50.012 Networks} perspective, an LLM chat call is a long-lived HT
 
 The gap matters because: (1) \emph{accuracy benchmarks} (e.g., MMLU, GSM8K) are orthogonal to operational scores \cite{openai_mmlu,gsm8k}; (2) vendor dashboards and tracing tools are often per-account or per-stack, not standardized for cross-provider A/B; (3) ad hoc one-off \texttt{curl} tests do not preserve metadata (location, run counts, or aggregate statistics) for a team or a class. Our project is to design, implement, and evaluate a concrete system that treats LLM API streaming as a \emph{network-observable} service.
 
-\section{Literature and Related Work}
+\section{Literature Review}
 
-\paragraph{Scope.} This section is a substantial, critical survey. We structure it as: classical network and web performance tools (2.1); how LLM capabilities are \emph{usually} benchmarked, and what that leaves out (2.2); observability products for production LLM stacks (2.3); streaming protocols and the emerging notion of TTFB for inference (2.4); a synthesis and positioning (2.5). This block is written to be roughly \textbf{three pages} in the compiled PDF at 11pt.
+Existing research related to this project can be divided into three main areas: traditional network performance measurement, LLM capability benchmarking, and LLM inference-serving performance. Each area contributes an important part of the motivation for our project, but none fully addresses the problem of evaluating real-world LLM API responsiveness from the perspective of an application developer. Traditional network measurement research motivates the need for client-side benchmarking methodology. LLM capability benchmarks show how models are usually compared today, while also revealing that accuracy-based evaluation does not capture production usability. Finally, LLM serving research identifies latency and throughput as major systems-level concerns, which directly supports our choice of Time to First Token, tokens per second, and total latency as benchmark metrics.
 
-\subsection{Classical network and web performance measurement}
-\textbf{End-to-end throughput and latency.} Consumer tools such as Ookla Speedtest, Fast.com, and similar services estimate download and upload rates and report latency, typically against nearby servers, to represent ISP and last-mile quality \cite{ookla}. These are invaluable for \emph{layer-3/4} perception and routing/BGP diagnosis at a high level, but they do not exercise application logic on a specific \emph{multi-tenant inference} endpoint or separate server-side generation time from last-mile delay.
+\subsection{Traditional Network Performance Measurement}
 
-\textbf{Path diagnostics.} \texttt{ping} measures RTT to a host; \texttt{traceroute} infers the sequence of routers. They explain \emph{where} delay accumulates, not how an HTTP streaming response is paced, chunked, or buffered in the browser.
+Traditional speed tests and network diagnostic tools are designed to estimate the performance of an Internet connection using metrics such as latency, throughput, packet loss, and route behavior. MacMillan et al. compare Ookla Speedtest and Measurement Lab's NDT7, showing that even widely used speed tests can produce different results depending on test design, server infrastructure, and network conditions. This is important because it shows that ``speed'' is not a universal value; it depends on how the test is constructed, where the test server is located, and what part of the network path is being measured \cite{speedtestndt7}.
 
-\textbf{Web and API performance.} The performance community measures page load, Time to First Byte (TTFB) for document requests, and long tasks on the main thread; HTTP/1.1 vs.\ HTTP/2 and TLS session setup significantly affect the first byte on the wire. None of the above, however, \emph{standardizes} ``first token of model output'' for LLM streams, which depends on autoscaling, batching, and the provider's internal path.
+Han et al. make a similar point by analyzing the validity of Internet speed test tools and showing that reported performance can depend on factors such as server location, test duration, number of parallel connections, and congestion control behavior \cite{speedtestvalidity}. Sundaresan et al. also show that broadband measurements can vary depending on where the measurement is taken, since end-host behavior, gateway placement, and local network conditions can affect the observed result \cite{broadbandgateway}. Together, these works suggest that network performance should be measured from the user-facing perspective, rather than assumed from provider claims or theoretical bandwidth values.
 
-\emph{Critical take:} Speed tests give a lower-bound story about the pipe; LLM APIs need \emph{application-semantic} timers (first \emph{model} delta vs.\ first \emph{HTTP} byte) and a stable workload. Our tool is adjacent to, not a replacement for, last-mile speed tests.
+This directly informs the design of our project. Our AI Speed Test adopts the same general philosophy as traditional Internet speed tests: performance should be measured empirically from the client side using standardized test conditions. However, LLM APIs introduce a more complex measurement problem than ordinary broadband speed tests. A normal speed test measures how quickly data can be transferred between a client and a test server. In contrast, an LLM API call includes the network round trip, provider-side routing, possible queueing, model inference, and streamed token generation. Therefore, a slow LLM response cannot be explained by download speed or ping alone.
 
-\subsection{How LLM ``quality'' is usually benchmarked, and the operational blind spot}
-Leaderboards and papers overwhelmingly focus on \emph{task performance}: accuracy, calibration, and reasoning on static datasets, such as the Massive Multitask Language Understanding (MMLU) suite \cite{openai_mmlu} and grade-school math (GSM8K) \cite{gsm8k}. Those metrics answer ``how smart is the model?'' and drive research direction. In production, teams also need answers to: ``For our prompt sizes and our geography, which endpoint feels fastest to users, and how many tokens per second can we count on?''
+For this reason, our project adapts the speedtest concept to the application layer. Instead of measuring raw upload and download throughput, we measure LLM-specific performance indicators such as Time to First Token, tokens per second, and total latency. These metrics better reflect what a user actually experiences when interacting with an AI application. The traditional network measurement literature therefore supports our project's broader methodology, while also showing why a specialized benchmark is needed for LLM APIs.
 
-Operationally, teams care about: \textbf{TTFB} to first \emph{model} content (analogous to reactivity), \textbf{TPs} (tokens or proxy-bytes per second) while streaming, and \textbf{end-to-end latency} until stream completion, plus \textbf{cost} and \textbf{resilience} (not fully covered here). The classical NLP benchmarks do not provide those numbers.
+\subsection{Existing LLM Capability Benchmarks}
 
-\emph{Critical take:} A project that \emph{only} surveys MMLU-style work would miss the \emph{systems} lens required for this course; conversely, our engineering artifact does not supplant quality evaluation---it \emph{complements} it.
+Most existing LLM benchmarks focus on model capability rather than real-world API performance. Hendrycks et al. introduce MMLU, a benchmark designed to evaluate multitask language understanding across 57 subject areas, including mathematics, computer science, law, history, and other academic domains. MMLU is valuable because it provides a standardized way to compare model knowledge and reasoning ability across diverse tasks \cite{mmlu}. However, it does not evaluate whether a model is fast enough, stable enough, or cost-efficient enough for real-time use in production applications.
 
-\subsection{Observability, evaluation platforms, and vendor lock-in}
-Production stacks increasingly adopt tracing and product analytics: OpenTelemetry and cloud APMs capture spans for HTTP, databases, and microservices, while LLM-specific products (e.g., request tracing in LangChain ecosystems, and hosted observability in tools such as LangSmith and Helicone) focus on \emph{application} debugging---prompt versioning, per-request logs, and cost, often inside a \emph{single} vendor or framework \cite{langsmith,helicone}. These are strong for SRE-style drill-down but are not designed as a \textbf{cross-vendor, student-accessible, crowd-aggregated} benchmark with a public ``community scoreboard.''
+Liang et al. propose HELM, a broader framework for holistic language model evaluation. HELM expands model evaluation beyond accuracy by considering multiple dimensions, including calibration, robustness, fairness, bias, toxicity, and efficiency \cite{helm}. This is useful because it recognizes that model quality cannot be reduced to a single score. However, HELM is still primarily a model evaluation framework rather than a client-side API performance benchmark. It helps answer questions such as ``Which model performs better on a task?'' but not necessarily ``Which provider gives the best real-time experience from my location and network conditions?''
 
-\emph{Critical take:} The gap is not a lack of telemetry \emph{per se} but a lack of a \textbf{portable, minimal, comparable} harness that (a) runs the same long prompt in the browser, (b) time-aligns first-token and throughput, and (c) logs rows into a simple SQL store for aggregation.
+This distinction is central to our project. Developers building LLM-powered applications often care about model quality, but they also care about responsiveness. For example, a customer support chatbot may need a low Time to First Token so that users feel the system is responding immediately. A code assistant may need high tokens per second so that long completions stream smoothly. A batch summarization tool may tolerate slower initial latency if the total completion time and cost are acceptable. These are deployment-specific concerns that are not captured by benchmarks focused mainly on reasoning accuracy.
 
-\subsection{Streaming inference, SSE, and ``time to first token''}
-LLM generation is exposed to developers primarily as \textbf{token streams}: OpenAI and compatible APIs often use \textbf{Server-Sent Events} (text/event-stream) to push JSON fragments over a long HTTP response, rather than a single JSON blob. From a networks standpoint, the connection stays warm; RTT and congestion control still matter, but \emph{application-level} backpressure, parsing, and incremental rendering dominate UX.
+Our project therefore complements existing LLM benchmarks rather than replacing them. MMLU and HELM help evaluate what a model can do, while our AI Speed Test evaluates how the model behaves as a real-world API service. This is especially important because many developers choose between providers not only based on intelligence, but also based on latency, throughput, reliability, region, and usability. By measuring these operational metrics, our benchmark targets the practical layer between model evaluation and production deployment.
 
-Industry discussions and product analytics increasingly cite \textbf{TTFB} for generative endpoints as a first-class SLO, distinct from TTFB for static assets. The measurement must attribute time to: TLS handshakes, HTTP/2 or HTTP/1 framing, provider queuing, and the model's time to first emitted content---which our harness approximates with high-resolution monotonic time around stream callbacks.
+\subsection{LLM Inference-Serving Performance}
 
-\emph{Critical take:} Treating the stream as a one-shot download would hide the \emph{shape} of latency; streaming analysis is the right match for LLM APIs \cite{openai_streaming}.
+Recent systems research on LLM serving shows that latency and throughput are major challenges in deploying generative models. Kwon et al. introduce vLLM and PagedAttention, focusing on efficient memory management for LLM serving. Their work shows that serving LLMs at scale requires careful management of key-value cache memory and batching, and that these systems-level choices directly affect throughput and latency \cite{vllm}.
 
-\subsection{Synthesis: positioning of AI Speedtest}
-The related work landscape splits into: (1) \textbf{raw network} tools, (2) \textbf{quality} benchmarks, (3) \textbf{vendor-specific} observability, and (4) ad hoc per-developer \texttt{scripts}. Our work deliberately occupies the intersection: a \textbf{reproducible, multi-provider, streaming} benchmark with \textbf{explicit} timing semantics and a \textbf{crowdsourced} store for \textbf{geographically tagged} runs (where available). We are critical of the limitation that we do not see provider-internal routing, only user-side and edge-visible behavior, and that token counts for streaming are partly \textbf{estimated} (Section~\ref{sec:challenges})---an honest constraint that future work can tighten with fuller usage events.
+Zhong et al. further separate LLM serving into two important phases: prefill and decoding. Their DistServe system is motivated by the observation that interactive LLM applications care about both Time to First Token and the time between output tokens. Time to First Token reflects how long the user waits before seeing the beginning of a response, while decoding performance determines how quickly the rest of the response streams after generation begins \cite{distserve}. This directly supports our choice of benchmark metrics, since our project measures TTFB, tokens per second, and total latency rather than using a single generic ``speed'' value.
+
+However, systems papers such as vLLM and DistServe generally study serving infrastructure under controlled or provider-side conditions. In contrast, application developers using commercial APIs such as OpenAI, Anthropic, Google, or Groq often do not have visibility into the provider's internal queueing, hardware, routing, or data center placement. From the developer's perspective, these providers behave as black-box network services. This means that empirical client-side measurement is still necessary: standardized prompts must be sent to each provider, and externally visible timing behavior must be recorded.
+
+\subsection{Research Gap and Project Positioning}
+
+The existing literature leaves a clear gap between network measurement, LLM capability evaluation, and LLM serving research. Traditional network speed tests measure Internet performance, but they do not capture LLM-specific behavior such as token streaming, Time to First Token, or inference delay. LLM capability benchmarks evaluate reasoning and knowledge, but they do not measure whether an API is responsive enough for production use. LLM serving research studies latency and throughput, but often from the provider or infrastructure side rather than from the perspective of an ordinary developer comparing black-box commercial APIs.
+
+Our project addresses this gap by applying a speedtest-style methodology to LLM APIs. The AI Speed Test treats each provider as a networked application-layer service and measures standardized client-facing metrics: Time to First Token, tokens per second, total latency, provider, model, and geographic region. This design allows us to evaluate not only how intelligent a model is, but also how usable it is in real-world interactive settings.
+
+The project also connects directly to networking concepts covered in the course. At the application layer, the benchmark relies on HTTP-based API communication and streamed responses. At the transport layer, observed latency is affected by round-trip time, connection setup, congestion, and the stability of the client-provider path. At the systems layer, the measured response includes provider-side queueing and model inference. By collecting results across providers, models, and regions, the tool creates a practical dataset that reflects how network and system factors combine to shape the user experience of LLM applications.
+
+In this sense, our project does not simply ask which LMM is ``best.'' Instead, it asks which LLM API performs best under real deployment conditions for a given user, location, and application need. This makes the project a bridge between traditional network performance measurement and modern AI infrastructure evaluation.
 
 \section{Approach, Justification, and Implementation}
 
@@ -93,36 +100,77 @@ All server benchmarks use a single fixed \texttt{BENCHMARK\_PROMPT} in \path{src
 
 \textbf{Why Turso/libSQL?} A lightweight, serverless SQL database with file fallback (\texttt{file:local.db}) makes development reproducible in the classroom while supporting hosted Turso in production, enabling \texttt{GROUP BY} aggregates in \path{web/src/lib/db.ts} (function \texttt{getAggregateStats}) without operating a custom backend service.
 
-\subsection{System architecture and execution (implementation)}
-\textbf{End-to-end flow.} The hook \path{useBenchmark} (\texttt{src/hooks/useBenchmark.ts}) (1) resolves location once, (2) runs either \texttt{getClientStreamer} (browser) or fetches the SSE stream from the Next route (server), (3) updates live TPS and TTFB, and (4) on \texttt{complete}, posts JSON to \path{/api/results} with location fields, which \path{insertResult} persists.
+\subsection{System Architecture and Execution (Expanded)}
 
-\textbf{Provider abstraction.} Each class under \path{src/lib/providers/} implements an async generator over \path{BenchmarkEvent} chunks: the OpenAI and Anthropic server SDKs consume native streams; the route forwards each event as SSE to the client.
+AI Speedtest is implemented as a full-stack web measurement system with four layers: (i) browser UI and benchmark orchestration, (ii) API routes for benchmark execution and persistence, (iii) provider adapters for heterogeneous LLM streaming APIs, and (iv) a SQLite-compatible storage backend (local or Turso). This layered design preserves a uniform benchmark workflow while handling provider-specific protocol and payload differences.
 
-\textbf{Metrics.} A monotonic \texttt{performance.now()} stopwatch is started before the provider call. \textbf{TTFB} is the time to the first non-empty \emph{model} text delta. \textbf{TPS} is output token estimate divided by total elapsed seconds. During streaming, output token counts are \emph{estimated} by summing a per-chunk count derived from string length (see e.g.\ \path{web/src/lib/providers/openai.ts} and \path{web/src/lib/client-providers/index.ts}) instead of a tokenizer; Anthropic can additionally reconcile totals from final \texttt{usage}. \textbf{Cache status} is \texttt{hit} when the provider reports cached or cache-read input tokens, else \texttt{miss} when usage is known---see the OpenAI and Anthropic stream handlers.
+\textbf{[Figure Placeholder: Figure 1 --- End-to-end architecture diagram: Browser UI $\rightarrow$ Next.js API routes $\rightarrow$ Provider adapters/APIs $\rightarrow$ libSQL/Turso storage]}
 
-\textbf{Geolocation.} The IP-based API (\path{ipapi.co}) is merged with optional GPS coordinates in session storage, balancing privacy, simplicity, and coarse region labels for the scoreboard (country/city/region, rounded lat/lon).
+At the frontend, the \texttt{SpeedTest} component coordinates provider selection, model selection, and run control, while \texttt{useBenchmark} acts as the runtime orchestrator. The hook maintains benchmark state (running status, live metrics, aggregated session results, and error state), and routes execution through either a browser-direct path or a server-proxy path. This decision is made dynamically based on provider CORS compatibility and whether a user-supplied API key is present.
 
-\subsection{Challenges overcome}
-\label{sec:challenges}
-The following items are concrete issues we \emph{did} solve during implementation, mapped to files in \path{web/}.
+From a networking perspective, this dual-path architecture is important: browser-direct mode measures a path closer to end-user experience (client $\rightarrow$ provider), while proxy mode measures server-mediated behavior (client $\rightarrow$ app server $\rightarrow$ provider). The application labels these modes at runtime to avoid conflating measurements from different network paths.
+
+\textbf{[Figure Placeholder: Figure 2 --- Dual execution path diagram: client-direct vs server-proxy and their measurement boundaries]}
+
+\subsection{Benchmark Execution Pipeline (Server-Side Flow)}
+
+When the client calls \texttt{POST /api/benchmark/[provider]}, the backend first validates the provider identifier against configured providers. It then resolves credentials (\texttt{body.apiKey} if provided, otherwise environment-based fallback) and resolves the model (request-selected model or default configured model). After validation, the route instantiates the appropriate provider adapter and starts an async streaming loop.
+
+Provider adapters expose a unified async generator interface that emits standardized benchmark events: \texttt{start}, \texttt{chunk}, \texttt{complete}, and \texttt{error}. The API route serializes each event into Server-Sent Events (SSE) frames and streams them to the client (\texttt{Content-Type: text/event-stream}). This stream-first design lets the frontend compute and render metrics progressively without waiting for final completion.
+
+On the client, streamed events are parsed incrementally and mapped into live metric updates. Buffering logic handles fragmented frames safely, because network chunk boundaries are not guaranteed to align with logical event boundaries. Malformed or partial records are ignored instead of terminating the run, improving robustness under real network conditions.
+
+\textbf{[Figure Placeholder: Figure 3 --- Sequence diagram for server-side benchmark execution and SSE event flow]}
+
+\subsection{Metric Capture and Timing Semantics}
+
+The benchmark uses a monotonic timer (\texttt{performance.now()}) started immediately before provider invocation. Let $t_0$ denote request dispatch, $t_1$ the arrival of the first non-empty token chunk, and $t_2$ the final completion chunk.
+
+\begin{itemize}
+  \item \textbf{TTFB} is measured as $t_1 - t_0$, representing startup delay before visible generation.
+  \item \textbf{Total Latency} is measured as $t_2 - t_0$, representing end-to-end completion time.
+  \item \textbf{Output Tokens} are accumulated across streamed chunks (provider usage metadata when available, otherwise estimator fallback).
+  \item \textbf{Input Tokens} are captured from provider usage metadata when available.
+  \item \textbf{TPS} is computed from output token count over elapsed benchmark duration according to implementation logic.
+\end{itemize}
+
+These measurements reflect application-layer user experience while remaining sensitive to transport and systems effects (connection setup, routing path, provider queueing, and decode speed).
+
+\textbf{[Figure Placeholder: Figure 4 --- Measurement timeline ($t_0$, $t_1$, $t_2$) and mapping to TTFB/TPS/Total Latency]}
+
+\subsection{Storage Integration and Data Path}
+
+On benchmark completion, the client submits a normalized result record to \texttt{POST /api/results}. The backend persists this record in \texttt{benchmark\_results} via a libSQL client. The same query layer supports both local development (\texttt{file:local.db}) and remote shared deployment on Turso, ensuring consistent schema and query semantics across environments.
+
+The storage schema captures three classes of information per run: identity (provider, model, timestamp), performance metrics (TTFB, TPS, total latency, token counts, cache status), and context (coarse location and server region). This enables both raw run inspection and aggregate analysis. Aggregate queries are computed server-side (e.g., mean TPS/TTFB and cache-hit ratio grouped by provider/model) and served directly to the community dashboard.
+
+\textbf{[Figure Placeholder: Figure 5 --- Storage write/read pipeline: benchmark completion $\rightarrow$ POST /api/results $\rightarrow$ benchmark\_results $\rightarrow$ raw/aggregate query paths]}
+
+\subsection{Engineering Challenges and Practical Trade-offs}
+
+To emphasize the implementation ``do'' aspect, we document the concrete failures and trade-offs encountered during development, and how they were resolved in code:
 
 \begin{enumerate}
-  \item \textbf{SSE frame boundaries.} Browsers can split the HTTP body arbitrarily; the client must buffer partial lines and only parse complete \texttt{data:} records. The server path in \path{useBenchmark} splits on \texttt{\textbackslash n\textbackslash n} and carries a buffer across reads; the client path uses similar line buffering. Malformed lines are ignored rather than aborting the whole run.
-  \item \textbf{Heterogeneous stream formats.} OpenAI- and Groq-style chunks differ from Gemini's \texttt{streamGenerateContent} event JSON. We centralized parsing in shared helper logic for client streamers and kept a separate Gemini loop where usage metadata and candidate text are nested differently.
-  \item \textbf{CORS vs.\ server proxy.} A boolean map in \path{client-providers/index.ts} enforces: OpenAI, Google, Groq can be measured from the browser; Anthropic cannot, so the server path must be used, keeping keys off the client in deployment scenarios that rely on environment variables.
-  \item \textbf{Key management.} The server route uses \path{body.apiKey || process.env[providerConfig.envKey]}; missing configuration returns a clear HTTP~400. This unifies ``bring your own key'' with a hosted demo key in the cloud.
-  \item \textbf{Crowdsourced result integrity.} \path{insertResult} assigns stable IDs, indexes provider and country, and the GET handler supports \texttt{aggregate=true} to compute per-(provider, model) averages, avoiding ad hoc client-side math.
-  \item \textbf{Attribution, not over-claiming on routing.} Provider edge selection is not exposed in headers we consume; the report records the \textbf{user's} coarse geolocation, not a datacenter name. We do not conflate TTFB with a single well-known hop count.
+  \item \textbf{SSE frame boundaries and stream reassembly.} Browsers may split HTTP response bodies arbitrarily, so an SSE event can arrive across multiple network reads. A naive parser that assumes one read equals one event causes JSON parse failures and dropped telemetry. In our server-consumption path, \texttt{useBenchmark} carries a persistent buffer and only parses complete \texttt{data:} records after splitting on \texttt{\textbackslash n\textbackslash n}. The browser-direct path applies the same defensive buffering strategy. Malformed records are skipped instead of aborting the benchmark, so one corrupted frame does not invalidate the full run.
+
+  \item \textbf{Heterogeneous provider stream formats.} Provider stream payloads are structurally different even when all are ``chat streaming.'' OpenAI and Groq expose OpenAI-like deltas, while Gemini's \texttt{streamGenerateContent} nests token text and usage metadata differently. We centralized common SSE parsing and token-accumulation logic in shared helpers, while maintaining a Gemini-specific parsing loop where candidate text and usage fields require different extraction logic.
+
+  \item \textbf{CORS constraints vs. representative path measurement.} For network realism, browser-direct calls are preferred when possible because they measure the user-to-provider path directly. However, not all providers permit browser CORS access (notably Anthropic). We therefore implemented an explicit capability map in \path{client-providers/index.ts}: OpenAI/Google/Groq can run client-side, while Anthropic is forced through the server proxy. This avoids silent failures and makes measurement mode a deliberate, auditable choice.
+
+  \item \textbf{API key management across local and hosted modes.} The system needed to support both BYOK experimentation and hosted demonstrations. The benchmark route resolves credentials via \path{body.apiKey || process.env[providerConfig.envKey]}. This unifies user-supplied keys with deployment-managed keys, and returns an explicit HTTP~400 when neither is present. The result is a predictable failure mode rather than ambiguous stream errors.
+
+  \item \textbf{Crowdsourced result integrity and queryability.} Raw crowd data can become hard to compare if aggregation is left to ad hoc client logic. We moved aggregation to the database layer: \path{insertResult} assigns generated unique IDs per record, indexes provider/country/time fields, and \texttt{GET /api/results?aggregate=true} computes per-(provider, model) summaries in SQL. This improves reproducibility and ensures that different UI views consume the same canonical aggregates.
+
+  \item \textbf{Attribution discipline (avoiding over-claims).} Commercial providers do not expose full internal routing or edge-placement metadata in a way we can reliably consume. To avoid false precision, we record \emph{user-side} coarse geolocation and measured timings, but do not claim datacenter-level attribution. In particular, we treat TTFB as an end-to-end observable metric, not as a direct proxy for a known hop count or a single network segment.
 \end{enumerate}
 
-\subsection{How this maps to network concepts}
-TTFB subsumes TCP and TLS work where applicable, HTTP request scheduling, and provider-side time to first generated token. TPS during streaming relates to how quickly chunks arrive and are parsed---coupled to both network bandwidth and service-side token generation. We therefore frame the work as an \textbf{Application-layer} study with \textbf{Transport-level} impact on the overall timeline, plus \textbf{stream semantics} (SSE) akin to one-way media-style delivery, rather than a single file download.
+
 
 \section{Findings, Evidence, and Preliminary Results}
 
 \paragraph{What we can evidence today.} The \textbf{Community Benchmarks} UI (\path{web/src/components/CommunityResults.tsx}) loads \path{/api/results?aggregate=true} and shows, per provider and model: average TPS, average TTFB (ms), cache hit percentage, and total run count---computed in SQL via \texttt{getAggregateStats} in \path{web/src/lib/db.ts}. A modal fetches the latest $N$ raw rows to audit timestamps, per-run latencies, and country, demonstrating that the \textbf{entire data path} (benchmark $\rightarrow$ POST \path{/api/results} $\rightarrow$ Turso $\rightarrow$ GET aggregates) is live.
 
-\paragraph{Illustrative aggregate table.} The numbers below are \textbf{placeholders} for a snapshot; for grading, the authoritative values are the ones returned by the deployed \texttt{GET /api/results?aggregate=true} (or local \texttt{local.db} when developing). We retain the structure to show \emph{how} we slice results by provider, model, and (implicit) geography via stored country and coordinates.
+\paragraph{Illustrative aggregate table.} The numbers below are \textbf{placeholders} for a snapshot; for grading, the authoritative values are the ones returned by the deployed \texttt{GET /api/results?aggregate=true} (or local \texttt{local.db} when developing). We retain the structure to show how we slice results by provider and model in the current implementation. Geographic fields (country and coordinates) are stored per run for future region-based cohort analysis, but the current aggregate endpoint does not yet group by region.
 
 \begin{table}[h]
 \centering
@@ -151,6 +199,50 @@ We intend to:
   \item \textbf{Model class comparison:} compare smaller vs.\ larger models at fixed prompt using the \emph{same} \texttt{BENCHMARK\_PROMPT} to see how TPS scales with model depth.
 \end{enumerate}
 
+\section{Future Work}
+
+Although the current version of the AI Speed Test establishes a working foundation for benchmarking LLM API performance, there are several important directions for future work. These extensions would make the benchmark more rigorous, more representative of real production conditions, and more useful for developers choosing between LLM providers.
+
+\subsection{Separating Network Delay from Inference Delay}
+
+One major limitation of the current benchmark is that the measured latency combines multiple sources of delay into a single observed value. When a request is sent to an LLM API, the total response time includes client-side overhead, DNS lookup, TCP/TLS connection setup, network round-trip time, provider-side routing, queueing, model inference, and streamed token generation. From the user's perspective, these all contribute to the same delay, but from an engineering perspective, it is useful to understand which component is responsible for slow performance.
+
+Future work could attempt to separate network delay from inference delay more carefully. For example, the system could collect baseline network measurements to provider endpoints, such as approximate HTTP request latency or round-trip time where available, and compare these values against the observed Time to First Token. If the baseline network latency is low but TTFB is high, this suggests that the bottleneck is likely provider-side queueing or model inference. If both baseline latency and TTFB increase together for a particular region, then the network path or provider routing may be a larger factor.
+
+This would make the benchmark more diagnostic rather than only descriptive. Instead of simply reporting that one provider has a higher average TTFB, the tool could help developers reason about whether that delay is caused by network distance, routing behavior, server load, or model complexity. This extension would also strengthen the connection between the project and core networking concepts such as round-trip time, connection setup, and application-layer response delay.
+
+\subsection{Testing Prompt Size and Output Length}
+
+Another important area for future work is testing how prompt size and output length affect LLM API performance. The current benchmark can use standardized prompts to compare providers under similar conditions, but real applications vary significantly in the amount of input and output they require. For example, a chatbot may use short prompts and short responses, a code assistant may generate long outputs, and a summarization system may send long input documents but require shorter outputs.
+
+Future versions of the benchmark could define multiple workload profiles based on input and output length. These could include short-prompt short-output tests, short-prompt long-output tests, long-prompt short-output tests, and long-prompt long-output tests. This would allow the tool to evaluate whether a provider performs consistently across different types of workloads. It would also help separate the effects of prompt processing from output generation. Longer prompts may increase the time required before the first token is generated, while longer outputs mainly affect total latency and tokens per second.
+
+This extension is especially relevant because LLM serving performance depends on both the prefill stage and the decoding stage. By varying prompt length and expected output length, the benchmark could provide more detailed insight into where performance differences appear. A provider that performs well on short chatbot-style prompts may not perform as well on long-context summarization or code generation tasks. Adding workload-specific benchmark modes would therefore make the AI Speed Test more useful for developers with different deployment needs.
+
+\subsection{Expanding Geographic Testing}
+
+The current system records geographic information so that benchmark results can be grouped by region. Future work could expand this feature into a larger-scale geographic testing framework. Since LLM APIs are accessed through global network infrastructure, performance may vary depending on the user's physical location, the provider's edge routing strategy, and the distance to the serving region. A provider that performs well in one region may not necessarily provide the same responsiveness in another.
+
+A more complete benchmark could collect results from users in multiple regions, such as Singapore, Canada, the United States, Europe, and other major deployment markets. These results could then be visualized using regional latency maps, provider comparison charts, or location-based rankings. This would allow developers to answer questions such as which provider has the lowest TTFB in Southeast Asia, which model streams fastest from North America, or whether certain providers show more stable performance across regions.
+
+Expanding geographic testing would also make the project more directly connected to networking concepts such as propagation delay, routing, CDN placement, and edge infrastructure. Since commercial LLM providers often do not expose the exact data center or edge node serving a request, client-side regional benchmarking provides a practical way to observe the effects of provider infrastructure from the outside. Over time, a crowdsourced dataset could reveal patterns in regional performance that are not visible from isolated local tests.
+
+\subsection{Adding Concurrency and Load Testing}
+
+The current benchmark focuses mainly on individual API requests. However, production applications often send many requests over a short period of time, especially when serving multiple users simultaneously. A provider that performs well for a single request may show degraded performance under higher load due to queueing, rate limits, or backend resource constraints. Therefore, future work should include concurrency and load testing.
+
+A concurrency benchmark could send multiple simultaneous requests to the same provider and model while recording how TTFB, tokens per second, total latency, and error rate change as concurrency increases. For example, the system could compare performance at one, five, ten, or more parallel requests. This would help identify whether a provider maintains stable performance under load or whether latency increases sharply as request volume grows.
+
+This extension would make the benchmark more representative of real deployment conditions. Developers building production systems need to know not only how fast a provider is under ideal single-request conditions, but also how it behaves during traffic spikes. Load testing could also reveal rate-limiting behavior, request queueing, or instability in streamed responses. By adding concurrency measurements, the AI Speed Test would move closer to a practical systems benchmark for LLM-powered applications.
+
+\subsection{Adding Reliability and Error-Rate Measurement}
+
+In addition to speed, future versions of the benchmark should measure reliability. A provider with low latency is not necessarily the best choice if it frequently fails, times out, or returns rate-limit errors. For production applications, reliability is just as important as raw performance because users expect consistent responses rather than occasional fast responses mixed with failures.
+
+Future work could track request success rate, timeout rate, rate-limit frequency, provider-side errors, malformed streaming responses, and retry behavior. These metrics could be stored alongside TTFB, tokens per second, and total latency in the benchmark database. The results could then be used to compare not only which provider is fastest, but which provider is most stable across repeated trials and different regions.
+
+This would make the benchmark more useful for real-world deployment decisions. For example, a slightly slower provider with a very high success rate may be preferable to a faster provider with frequent errors or inconsistent streaming behavior. Reliability metrics would also allow the benchmark to report performance distributions rather than only average values. By combining latency, throughput, and reliability, the AI Speed Test could provide a more complete picture of LLM API usability.
+
 \section{Conclusion}
 We motivated the need for vendor-neutral, streaming-oriented benchmarks for LLM APIs, surveyed adjacent tools and literatures, and described \textbf{AI Speedtest}, a full-stack web implementation backed by a Turso database and an SSE-based telemetry path. The artifact makes networking concepts (TLS/HTTP, streaming, regional variation) \emph{measurable} in a modern AI context, and the documented challenges (SSE reassembly, CORS split, and metric estimation) show where the read-only design reviews end and our implementation work begins. Future work will tighten token accounting, enrich regional visualization, and publish aggregate tables populated directly from the production deployment.
 
@@ -161,6 +253,41 @@ We motivated the need for vendor-neutral, streaming-oriented benchmarks for LLM 
 \bibitem{openai_mmlu} D.~Hendrycks et al., \emph{Measuring Massive Multitask Language Understanding}, ICLR, 2021. (MMLU benchmark; widely used for static ``reasoning/accuracy'' leaderboards, orthogonal to our operational focus.)
 
 \bibitem{gsm8k} K.~Cobbe et al., \emph{Training Verifiers to Solve Math Word Problems}, arXiv:2110.14168 (GSM8K), 2021.
+
+\bibitem{speedtestndt7}
+K.~MacMillan, T.~Mangla, J.~Saxon, N.~P.~Marwell, and N.~Feamster, 
+\emph{A Comparative Analysis of Ookla Speedtest and Measurement Labs Network Diagnostic Test (NDT7)}, 
+Proc. ACM Internet Measurement Conference, 2023. doi: 10.1145/3606376.3593522.
+
+\bibitem{speedtestvalidity}
+J.~Han, M.~Nouwens, S.~S.~Kanhere, and V.~Sivaraman, 
+\emph{On the Validity of Internet Speed Test Tools and Methodology for Measuring Broadband Access Network Performance}, 
+Proc. Asian Internet Engineering Conference, 2022. doi: 10.1145/3570748.3570749.
+
+\bibitem{broadbandgateway}
+S.~Sundaresan, W.~de~Donato, N.~Feamster, R.~Teixeira, S.~Crawford, and A.~Pescap{\`e}, 
+\emph{Broadband Internet Performance: A View From the Gateway}, 
+Proc. ACM SIGCOMM, pp. 134--145, 2011. doi: 10.1145/2018436.2018452.
+
+\bibitem{mmlu}
+D.~Hendrycks et al., 
+\emph{Measuring Massive Multitask Language Understanding}, 
+arXiv:2009.03300 (MMLU), 2020. doi: 10.48550/arXiv.2009.03300.
+
+\bibitem{helm}
+P.~Liang et al., 
+\emph{Holistic Evaluation of Language Models}, 
+Annals of the New York Academy of Sciences, vol. 1525, no. 1, pp. 140--146, 2023. doi: 10.1111/nyas.15007.
+
+\bibitem{vllm}
+W.~Kwon et al., 
+\emph{Efficient Memory Management for Large Language Model Serving with PagedAttention}, 
+Proc. ACM SIGOPS 29th Symposium on Operating Systems Principles, pp. 611--626, 2023. doi: 10.1145/3600006.3613165.
+
+\bibitem{distserve}
+Y.~Zhong et al., 
+\emph{DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving}, 
+arXiv:2401.09670, 2024. doi: 10.48550/arXiv.2401.09670.
 
 \bibitem{langsmith} LangChain, \emph{LangSmith} documentation, \url{https://www.langchain.com/langsmith} (accessed 2026).
 
