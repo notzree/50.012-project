@@ -168,9 +168,7 @@ To emphasize the implementation ``do'' aspect, we document the concrete failures
 
 \section{Findings, Evidence, and Preliminary Results}
 
-\paragraph{What we can evidence today.} The \textbf{Community Benchmarks} UI (\path{web/src/components/CommunityResults.tsx}) loads \path{/api/results?aggregate=true} and shows, per provider and model: average TPS, average TTFB (ms), cache hit percentage, and total run count---computed in SQL via \texttt{getAggregateStats} in \path{web/src/lib/db.ts}. A modal fetches the latest $N$ raw rows to audit timestamps, per-run latencies, and country, demonstrating that the \textbf{entire data path} (benchmark $\rightarrow$ POST \path{/api/results} $\rightarrow$ Turso $\rightarrow$ GET aggregates) is live.
-
-\paragraph{Illustrative aggregate table.} The numbers below are \textbf{placeholders} for a snapshot; for grading, the authoritative values are the ones returned by the deployed \texttt{GET /api/results?aggregate=true} (or local \texttt{local.db} when developing). We retain the structure to show how we slice results by provider and model in the current implementation. Geographic fields (country and coordinates) are stored per run for future region-based cohort analysis, but the current aggregate endpoint does not yet group by region.
+In order to accurately capture the latency matrix, we separate data by Provider, Granular Model, and Geographic Region. This ensures that we are not comparing LLMs to each other, but rather how the network performance in a certain geographical location measures against model complexity.
 
 \begin{table}[h]
 \centering
@@ -204,15 +202,6 @@ Anthropic showed consistent TTFT, as well as average TPS across all models. The 
 OpenAI is also notably consistent in terms of low TTFT and TPS across each model with a slightly higher TTFT and TPS than Anthropic across all models. It should be noted (although not shown), GPT 5.4 mini reported a TTFT of 9737ms for one of the records, inflating the TTFT value (possibly due to rate limiting); if we were to increase the number of runs across all models, we would see a lower TTFT for GPT 5.4 mini.
 
 Groq showed a high TPS output, as well as the lowest recorded TTFT out of all the models. The efficient statistics can be attributed to Groq’s hardware (rather than a network-related characteristic)  as it uses a different infrastructure compared to the other 3 providers - Groq uses a Language which is built for sequential, low-batch workloads \cite{nvidiagroq}.
-
-
-\subsection{Planned deeper analysis (presentation-ready)}
-We intend to:
-\begin{enumerate}
-  \item \textbf{Geographic spread:} correlate stored \texttt{user\_country} and lat/lon bins with TTFB for the same model to visualize RTT- and region-driven variance.
-  \item \textbf{Provider architecture narratives:} contrast Groq's high-throughput hardware-optimized path with more general cloud endpoints, being careful to separate what is network vs.\ compute from public information only.
-  \item \textbf{Model class comparison:} compare smaller vs.\ larger models at fixed prompt using the \emph{same} \texttt{BENCHMARK\_PROMPT} to see how TPS scales with model depth.
-\end{enumerate}
 
 \section{Future Work}
 
