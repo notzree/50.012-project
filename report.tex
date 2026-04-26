@@ -31,24 +31,20 @@ Performance benchmarks are slowly emerging and reinforcing itself as a strategic
 
 \subsection{Problem Statement}
 
-Current literature and benchmarks focus exclusively on characteristics such as model intelligence, accuracy, and reasoning metrics (e.g., MMLU, and GSM8k). Additionally, there is a distinct gap in evaluating metrics such as latency, throughput, reliability and cost efficiency. For this reason, developers require a method in order to understand and quantify how LLM APIs perform and behave under real-world network conditions rather than an isolated, controlled condition. We aim to change the target criterion from model intelligence to system usability by introducing a tool that allows developers to benchmark API performance quantitatively in terms of latency and throughput.
+Current literature and benchmarks focus exclusively on characteristics such as model intelligence, accuracy, and reasoning metrics (e.g., MMLU, and GSM8k). Additionally, there is a distinct gap in evaluating metrics such as latency, throughput, reliability and cost efficiency. For this reason, developers require a method in order to understand and quantify how LLM APIs perform and behave under real-world network conditions rather than an isolated, controlled condition. We aim to change the target standard from model intelligence to system usability by introducing a tool that allows developers to benchmark API performance quantitatively in terms of latency and throughput.
 
 \section{Literature Survey}
-\subsection{Traditional Network Observability}
-Traditional network performance measurement tools, such as Speedtest, Ping, and Traceroute, exist to evaluate raw network capability and connection stability. However, they do not account for the compute-bound delays intrinsic to AI workloads. An API response delay constitutes both the network round-trip time (RTT) and the highly variable processing time associated with auto-regressive token generation.
 
-% Section needs rewriting
+Current network performance measuring tools, such as Speedtest, Ping, and Traceroute, aim to evaluate and test raw network metrics and connection stability. These metrics do not include processing latency statistics related to AI workloads; An API response delay consists of a network round-trip time (RTT), as well as the variable processing time associated with token generation.
 
 \subsection{LLM Benchmarking Current State}
-Current observability tools provided by AI vendors are fragmented. While tools like LangSmith or Helicone offer request tracing, they do not provide an independent, cross-vendor standardized benchmark for consumer evaluation. Therefore, there is a clear need for a unified, client-driven benchmarking mechanism modeled after classic network bandwidth testing, repurposed for tokenized generation streams.
 
-% Section needs rewriting
+As well as network performance tools, observation tools for LLMs provided by AI vendors are considered to be fragmented. While tools such as LangSmith and Helicone offer request tracing, they fail to provide a cross-vendor standardized benchmark designed for consumer evaluation. This creates a demand for a universal, client-driven benchmarking tool modeled for network bandwith testing, as well as tokenized generation streams.
 
 \section{Approach Formulation and Execution}
 \subsection{Our Approach}
-We propose and implement an ``AI Speed Test'', a web-based benchmarking application. The tool executes standardized, deterministic prompts against multiple LLM providers. By capturing timestamps throughout the HTTP streaming response lifecycle, the tool calculates Time To First Token (TTFT), Tokens Per Second (TPS), and total latency.
 
-% Section needs rewriting
+To solve the aforementioned issues, we propose a web-based benchmarking tool: ``AI Speed test``. This tool will use deterministic prompts against multiple different LLM providers. Using time-based metrics and HTTPS communication, the tool calculates the Time To First Token (TTFT), Tokens per Second (TPS), and the total latency.
 
 \subsection{Execution \& System Architecture}
 In order to capture and synchronize crowdsourced network intelligence asynchronously amongst peers, we constructed a sophisticated full-stack architecture mapping the entire data lifecycle:
@@ -64,9 +60,8 @@ In order to capture and synchronize crowdsourced network intelligence asynchrono
 % Section needs rewriting
 
 \subsection{Network Layer Connections}
-This project heavily emphasizes L2 (Application Layer) via HTTP REST architectures, but directly relates to Transport Layer constraints. The Time to First Token (TTFT) is fundamentally impacted by the TCP handshake and RTT to distributed CDNs or edge endpoints handling the LLM routing. Furthermore, correlating geographic location tags against TTFT allows us to empirically observe CDN routing optimization behavior among various models.
 
-% Section needs rewriting
+This project heavily emphasizes the Application layer within HTTP REST architectures, but directly relates to constraints via the Transport Layer. In any case, the Time to First Token (TTFT) is affected by the TCP handshake, as well as RTT to distributed CDNs or edge endpoints in charge of handling the LLM routing. Furthermore, the geographic location tag allows us to observe the behavior of CDN routiting among various different models, outlining key differences between LLMs.
 
 \section{Sharing of Findings \& Quantitative Results}
 
@@ -75,7 +70,7 @@ This project heavily emphasizes L2 (Application Layer) via HTTP REST architectur
 % Section needs rewriting
 
 \subsection{Aggregated Benchmarking Data}
-To accurately capture the latency matrix, we segregate data by \textbf{Provider}, \textbf{Granular Model}, and \textbf{Geographic Region}. This ensures we are not merely comparing "OpenAI to Google" but dissecting how network topology to a specific region interfaces with model complexity.
+In order to accurately capture the latency matrix, we separate data by \textbf{Provider}, \textbf{Granular Model}, and \textbf{Geographic Region}. This ensures that we are not comparing LLMs to each other, but rather how the network performance in a certain geographical location measures against model complexity.
 
 \begin{table}[h]
 \centering
@@ -106,7 +101,7 @@ In our final presentation and expanded metrics, we will conduct quantitative ana
 % Section needs rewriting
 
 \section{Conclusion}
-The ``AI Speed Test'' provides a crucial, missing capability in the modern AI engineering stack: objective, comparable system-level benchmarking of generative API endpoints. By framing LLM evaluations through the lens of traditional network streaming metrics and crowd-sourcing regional latency via Turso, we enable an empirical foundation for production AI deployment architectures.
-% Section needs rewriting
+
+Our proposed ``AI Speed Test`` provides the missing capability that modern speed testers and AI benchmarks lack: an objective and comparable method to benchmarking different generative API endpoints. By formulating LLM benchmarks through traditional network streaming metrics, as well as crowd-sourcing regional latency via Turso, we provide a foundation for the production of AI deployment architectures.
 
 \end{document}
