@@ -177,19 +177,34 @@ To emphasize the implementation ``do'' aspect, we document the concrete failures
 \resizebox{\textwidth}{!}{%
 \begin{tabular}{@{}lllccc@{}}
 \toprule
-\textbf{Provider} & \textbf{Model} & \textbf{Region} & \textbf{Avg TTFB (ms)} & \textbf{Avg TPS} & \textbf{Test Runs} \\ \midrule
-OpenAI            & gpt-5.4-nano   & (from DB)   & [DATA] & [DATA] & [DATA] \\
-OpenAI            & gpt-5.4        & (from DB)   & [DATA] & [DATA] & [DATA] \\
-Google Gemini     & gemini-3.1-flash-lite-preview & (from DB) & [DATA] & [DATA] & [DATA] \\
-Google Gemini     & gemini-3.1-pro-preview  & (from DB)  & [DATA] & [DATA] & [DATA] \\
-Groq              & llama-3.3-70b-versatile  & (from DB)  & [DATA] & [DATA] & [DATA] \\
-Anthropic         & claude-haiku-4-5  & (from DB)  & [DATA] & [DATA] & [DATA] \\
+\textbf{Provider} & \textbf{Model} & \textbf{Region} & \textbf{Avg TTFT (ms)} & \textbf{Avg TPS} & \textbf{Test Runs} \\ \midrule
+OpenAI            & gpt-5.4        & Singapore (SG) & 1260 & 95.3 & 13 \\
+OpenAI            & gpt-5.4-mini   & Singapore (SG) & 1607 & 217.1 & 10 \\
+OpenAI            & gpt-5.4-nano   & Singapore (SG) & 800 & 208.8 & 10 \\
+Google Gemini     & gemini-3.1-flash-preview & Singapore (SG) & 15169 & 68.7 & 10 \\
+Google Gemini     & gemini-3.1-flash-lite-preview & Singapore (SG) & 792 & 239.9 & 10 \\
+Google Gemini     & gemini-3.1-pro-preview  & Singapore (SG) & 13678 & 54.2 & 10 \\
+Groq              & llama-3.3-70b-versatile  & Singapore (SG) & 479 & 531.6 & 11 \\
+Anthropic         & claude-haiku-4-5  &  Singapore (SG) & 910 & 107.6 & 11 \\
+Anthropic         & claude-sonnet-4-6  &  Singapore (SG) & 1146 & 62.1 & 10 \\
+Anthropic         & claude-opus-4-7  &  Singapore (SG) & 1125 & 76.9 & 10 \\
 \bottomrule
 \end{tabular}%
 }
-\caption{Example layout for per-provider, per-model aggregates. Replace \textbf{[DATA]} with a CSV export or screenshot from the Community Benchmarks view after enough peer runs. Model names follow \path{web/src/lib/constants.ts}.}
+\caption{Per-provider performance in terms of TTFT (ms), TPS and number of test runs.}
 \label{tab:granular_results}
 \end{table}
+
+From the above table, the metrics of the 4 providers: Anthropic, Google Gemini, Groq, and OpenAI, was evaluated using the metrics: Average TTFT (Time To First Token), Average TPS (Tokens Per Second), and number of Test runs (Cache hit percentage was not recorded as every provider reported a cache hit of 0%).
+
+Google Gemini reported exceedingly high TTFTs when it came to benchmarking “gemini-3-flash-preview” and “gemini-3.1-pro-preview” with TTFT values ranging from ~4000ms-~40000ms and ~12000ms–~15359ms. It can be argued that with the Gemini 3 flash preview, there may have been issues correlating with rate limits which causes a fluctuation in terms of reported TTFT; without the feature of crowdsourcing information, we would not be able to identify the issue with the fluctuating TTFT. Additionally, the Gemini 3.1 pro preview consistently showed a high TTFT of around ~14000ms throughout all recorded tests, implying either a high deep thinking time or high server traffic within the provider’s side.
+
+Anthropic showed consistent TTFT, as well as average TPS across all models. The most noticeable characteristic of Anthropic’s models is the consistent low TPS as compared to other models, even with slower performing models such as the Gemini 3 previews. However, it should be noted that powerful Claude models (such as Opus 4.7) perform on a similar metric as earlier models meaning that Anthropic may not struggle with traffic and token delivery as compared to Google Gemini across all models.
+
+OpenAI is also notably consistent in terms of low TTFT and TPS across each model with a slightly higher TTFT and TPS than Anthropic across all models. It should be noted (although not shown), GPT 5.4 mini reported a TTFT of 9737ms for one of the records, inflating the TTFT value (possibly due to rate limiting); if we were to increase the number of runs across all models, we would see a lower TTFT for GPT 5.4 mini.
+
+Groq showed a high TPS output, as well as the lowest recorded TTFT out of all the models. The efficient statistics can be attributed to Groq’s hardware (rather than a network-related characteristic)  as it uses a different infrastructure compared to the other 3 providers - Groq uses a Language which is built for sequential, low-batch workloads \cite{nvidiagroq}.
+
 
 \subsection{Planned deeper analysis (presentation-ready)}
 We intend to:
@@ -298,6 +313,8 @@ arXiv:2401.09670, 2024. doi: 10.48550/arXiv.2401.09670.
 \bibitem{h2t} Fielding, R. T. et al., RFCs on HTTP/1.1 and subsequent HTTP/2 work---background on request/response and multiplexing; relevant to discussing TLS+HTTP over modern LLM endpoints (general references from IETF).
 
 \bibitem{opentelemetry} OpenTelemetry Project, \url{https://opentelemetry.io/} (accessed 2026).
+
+\bibitem{nvidiagroq} Inside NVIDIA Groq 3 LPX: The Low-Latency Inference Accelerator for the NVIDIA Vera Rubin Platform, \url {https://developer.nvidia.com/blog/inside-nvidia-groq-3-lpx-the-low-latency-inference-accelerator-for-the-nvidia-vera-rubin-platform/} (accessed 2026).
 
 \end{thebibliography}
 
